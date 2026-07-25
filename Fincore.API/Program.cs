@@ -1,60 +1,58 @@
+using Fincore.Application;
 using Fincore.Application.AutoMapper;
-using Fincore.Application.Interfaces.Opex;
-using Fincore.Application.AutoMapper.MasterTable;
-using Fincore.Application.Interfaces.IMasterTable;
-using Fincore.Application.Interfaces.IPayment;
-using Fincore.Application.AutoMapper.MasterTable;
-using Fincore.Application.Interfaces.IMasterTable;
-using Fincore.Application.Interfaces.IPayment;
-
 using Fincore.Application.AutoMapper.Capex;
-using Fincore.Application.Interfaces.ICapex;
+using Fincore.Application.AutoMapper.Capex;
 using Fincore.Application.AutoMapper.MasterTable;
+using Fincore.Application.AutoMapper.MasterTable;
+using Fincore.Application.AutoMapper.MasterTable;
+using Fincore.Application.AutoMapper.Payment;
+using Fincore.Application.Interfaces;
+using Fincore.Application.Interfaces.Budget;
+using Fincore.Application.Interfaces.BudgetCategory;
+using Fincore.Application.Interfaces.BudgetLine;
+using Fincore.Application.Interfaces.Dashboard;
+using Fincore.Application.Interfaces.ExpenseClaim;
+using Fincore.Application.Interfaces.ICapex;
+using Fincore.Application.Interfaces.ICapex;
 using Fincore.Application.Interfaces.IMasterTable;
+using Fincore.Application.Interfaces.IMasterTable;
+using Fincore.Application.Interfaces.IMasterTable;
+using Fincore.Application.Interfaces.IPayment;
+using Fincore.Application.Interfaces.IPayment;
+using Fincore.Application.Interfaces.Opex;
+using Fincore.Application.Interfaces.Payment;
+using Fincore.Application.Interfaces.WorkOrder;
+using Fincore.Application.Mapper;
+using Fincore.Application.Mapping;
 using Fincore.Domain.Models;
+using Fincore.Infrastructure;
 using Fincore.Infrastructure.Data;
+using Fincore.Infrastructure.Mapping.Payment;
 using Fincore.Infrastructure.Seed;
-using Fincore.Infrastructure.Services.MasterTable;
-using Microsoft.AspNetCore.Identity;
+using Fincore.Infrastructure.Services;
+using Fincore.Infrastructure.Services.Budget;
+using Fincore.Infrastructure.Services.BudgetCategory;
+using Fincore.Infrastructure.Services.BudgetLine;
 using Fincore.Infrastructure.Services.Capex;
-
+using Fincore.Infrastructure.Services.Capex;
+using Fincore.Infrastructure.Services.Dashboard;
+using Fincore.Infrastructure.Services.ExpenseClaim;
 using Fincore.Infrastructure.Services.MasterTable;
-using Fincore.Infrastructure.Services.PaymentModule;
-
+using Fincore.Infrastructure.Services.MasterTable;
 using Fincore.Infrastructure.Services.Opex;
+using Fincore.Infrastructure.Services.Payment;
+using Fincore.Infrastructure.Services.PaymentModule;
+using Fincore.Infrastructure.Services.WorkOrder;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.IdentityModel.Tokens;
+using QuestPDF.Infrastructure;
+using System.Text;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
-using QuestPDF.Infrastructure;
-using Fincore.Application.Interfaces;
-using Fincore.Infrastructure.Services;
-using Fincore.Application;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.IdentityModel.Tokens;
-using System.Text;
-using Fincore.Infrastructure;
-using Fincore.Application.AutoMapper.Capex;
-using Fincore.Application.Interfaces.ICapex;
-using Fincore.Infrastructure.Services.Capex;
-using Fincore.Application.Interfaces.ExpenseClaim;
-using Fincore.Infrastructure.Services.ExpenseClaim;
-using Fincore.Application.Interfaces.WorkOrder;
-using Fincore.Infrastructure.Services.WorkOrder;
-using Fincore.Application.Interfaces.BudgetCategory;
-using Fincore.Infrastructure.Services.BudgetCategory;
-using Fincore.Application.Interfaces.Budget;
-using Fincore.Infrastructure.Services.Budget;
-using Fincore.Application.Interfaces.BudgetLine;
-using Fincore.Infrastructure.Services.BudgetLine;
-using Fincore.Application.Mapping;
-using Fincore.Application.Interfaces.Dashboard;
-using Fincore.Infrastructure.Services.Dashboard;
-using Fincore.Application.AutoMapper.Payment;
-using Fincore.Application.Mapper;
-using Fincore.Application.Interfaces.Payment;
-using Fincore.Infrastructure.Services.Payment;
 
 
 
@@ -104,6 +102,43 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
+
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseSqlServer(
+        builder.Configuration.GetConnectionString("dbconn"),
+        b => b.MigrationsAssembly("Fincore.Infrastructure")));
+
+
+
+//builder.Services.AddScoped<IARInvoiceService, ARInvoiceService>();
+builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
+var jwtSettings = builder.Configuration.GetSection("Jwt").Get<JwtSettings>();
+
+
+
+// ---------------------- AutoMapper ----------------------
+builder.Services.AddAutoMapper(typeof(AccountsMasterMapper));
+builder.Services.AddAutoMapper(typeof(PaymentMapper));
+builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
+builder.Services.AddAutoMapper(typeof(MapperConfigPayment));
+builder.Services.AddAutoMapper(typeof(APInvoiceProfile));
+builder.Services.AddAutoMapper(typeof(ARInvoiceProfile));
+// ---------------------- Services ----------------------
+builder.Services.AddScoped<IAccountMasterService, AccountMasterService>();
+
+builder.Services.AddScoped<IRevenueService, RevenueService>();
+builder.Services.AddScoped<IAPInvoiceService, APInvoiceService>();
+builder.Services.AddScoped<IARInvoiceService, ARInvoiceService>();
+
+builder.Services.AddScoped<IPaymentService, PaymentService>();
+builder.Services.AddScoped<IJournalEntryService, JournalEntryService>();
+
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IJwtTokenHelper, JwtTokenHelper>();
+builder.Services.AddScoped<ITwoFactorHelper, TwoFactorHelper>();
+
+
+
 builder.Services.AddScoped<ICityService, CityService>();
 builder.Services.AddScoped<ICountryService, CountryService>();
 builder.Services.AddScoped<IStateService, StateService>();
@@ -114,34 +149,11 @@ builder.Services.AddScoped<INotificationLogService, NotificationLogService>();
 builder.Services.AddScoped<IApprovalLogService, ApprovalLogService>();
 builder.Services.AddAutoMapper(typeof(LogsMappingProfile));
 
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(
-        builder.Configuration.GetConnectionString("dbconn"),
-        b => b.MigrationsAssembly("Fincore.Infrastructure")));
-
-builder.Services.AddAutoMapper(typeof(MapperConfigPayment));
-builder.Services.AddAutoMapper(typeof(APInvoiceProfile));
 
 
-builder.Services.AddScoped<IRevenueService, RevenueService>();
-builder.Services.AddScoped<IAPInvoiceService, APInvoiceService>();
-//builder.Services.AddScoped<IARInvoiceService, ARInvoiceService>();
-builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
-var jwtSettings = builder.Configuration.GetSection("Jwt").Get<JwtSettings>();
-// ---------------------- AutoMapper ----------------------
-builder.Services.AddAutoMapper(typeof(AccountsMasterMapper));
-builder.Services.AddAutoMapper(typeof(PaymentMapper));
-builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 
-// ---------------------- Services ----------------------
-builder.Services.AddScoped<IAccountMasterService, AccountMasterService>();
 
-builder.Services.AddScoped<IPaymentService, PaymentService>();
-builder.Services.AddScoped<IJournalEntryService, JournalEntryService>();
 
-builder.Services.AddScoped<IAuthService, AuthService>();
-builder.Services.AddScoped<IJwtTokenHelper, JwtTokenHelper>();
-builder.Services.AddScoped<ITwoFactorHelper, TwoFactorHelper>();
 
 builder.Services.AddAuthentication(options =>
 {

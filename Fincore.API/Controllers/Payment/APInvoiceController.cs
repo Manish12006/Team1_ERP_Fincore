@@ -1,4 +1,5 @@
-﻿using Fincore.Application.DTO.Payment.APInvoice.Requests;
+﻿using Fincore.Application.DTO.Payment.AccountsReceivable.Requests;
+using Fincore.Application.DTO.Payment.APInvoice.Requests;
 using Fincore.Application.Interfaces.Payment;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -40,6 +41,35 @@ namespace Fincore.API.Controllers.V1.Payment
 
             return Ok(result);
         }
+
+        // PUT : api/v1/ap/invoices/{id}
+        [HttpPut("invoices/{id:int}")]
+        public async Task<IActionResult> UpdateInvoice(
+            int id,
+            [FromBody] UpdateAPInvoiceRequestDto request)
+        {
+            var result = await service.UpdateAsync(id, request);
+
+            if (!result.success)
+                return BadRequest(result);
+
+            return Ok(result);
+        }
+
+
+        // DELETE : api/v1/ap/invoices/{id}
+        [HttpDelete("invoices/{id:int}")]
+        public async Task<IActionResult> DeleteInvoice(int id)
+        {
+            var result = await service.DeleteAsync(id);
+
+            if (!result.success)
+                return BadRequest(result);
+
+            return Ok(result);
+        }
+
+
 
         // POST : api/v1/ap/invoices/{id}/approve
         [HttpPost("invoices/{id}/approve")]

@@ -9,7 +9,6 @@
   <ItemGroup>
     <Folder Include="AutoMapper\Capex\" />
     <Folder Include="AutoMapper\Budget\" />
-    <Folder Include="AutoMapper\Payment\" />
     <Folder Include="AutoMapper\Logs\" />
     <Folder Include="DTO\Capex\" />
     <Folder Include="DTO\Budget\" />

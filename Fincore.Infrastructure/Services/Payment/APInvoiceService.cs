@@ -601,6 +601,170 @@ namespace Fincore.Infrastructure.Services.Payment
         }
 
         #endregion
+
+
+        #region Update Invoice
+
+        public async Task<ApiResponse<APInvoiceResponseDto>> UpdateAsync(
+            int id,
+            UpdateAPInvoiceRequestDto request)
+        {
+            try
+            {
+                var invoice = await _context.APInvoices
+                    .Include(x => x.Vendor)
+                    .Include(x => x.PurchaseOrder)
+                    .Include(x => x.GRN)
+                    .Include(x => x.WorkOrder)
+                    .FirstOrDefaultAsync(x => x.APInvoiceId == id);
+
+                if (invoice == null)
+                {
+                    return ApiResponseHelper.Failure<APInvoiceResponseDto>(
+                        "AP Invoice not found",
+                        "NOT_FOUND",
+                        "Invalid Invoice Id");
+                }
+
+                if (invoice.ApprovalStatus == "Approved")
+                {
+                    return ApiResponseHelper.Failure<APInvoiceResponseDto>(
+                        "Approved AP Invoice cannot be updated",
+                        "INVALID_OPERATION",
+                        "Invoice already approved");
+                }
+
+                if (invoice.PaymentStatus == "Paid")
+                {
+                    return ApiResponseHelper.Failure<APInvoiceResponseDto>(
+                        "Paid AP Invoice cannot be updated",
+                        "INVALID_OPERATION",
+                        "Invoice already paid");
+                }
+
+                var vendor = await _context.Vendors
+                    .FirstOrDefaultAsync(x => x.VendorId == request.VendorId);
+
+                if (vendor == null)
+                {
+                    return ApiResponseHelper.Failure<APInvoiceResponseDto>(
+                        "Vendor not found",
+                        "NOT_FOUND",
+                        "Invalid Vendor Id");
+                }
+
+                var po = await _context.PurchaseOrders
+                    .FirstOrDefaultAsync(x => x.POId == request.PurchaseOrderId);
+
+                if (po == null)
+                {
+                    return ApiResponseHelper.Failure<APInvoiceResponseDto>(
+                        "Purchase Order not found",
+                        "NOT_FOUND",
+                        "Invalid Purchase Order");
+                }
+
+                var grn = await _context.GRNs
+                    .FirstOrDefaultAsync(x => x.GRNId == request.GRNId);
+
+                if (grn == null)
+                {
+                    return ApiResponseHelper.Failure<APInvoiceResponseDto>(
+                        "GRN not found",
+                        "NOT_FOUND",
+                        "Invalid GRN");
+                }
+
+                invoice.VendorId = request.VendorId;
+                invoice.PurchaseOrderId = request.PurchaseOrderId;
+                invoice.GRNId = request.GRNId;
+                invoice.InvoiceDate = request.InvoiceDate;
+                invoice.DueDate = request.DueDate;
+                invoice.Amount = request.InvoiceAmount;
+                invoice.ModifiedAt = DateTime.UtcNow;
+
+                await _context.SaveChangesAsync();
+
+                _cache.Remove(CacheKey);
+
+                var response = _mapper.Map<APInvoiceResponseDto>(invoice);
+
+                return ApiResponseHelper.SuccessRes(
+                    response,
+                    "AP Invoice Updated Successfully");
+            }
+            catch (Exception ex)
+            {
+                return ApiResponseHelper.Failure<APInvoiceResponseDto>(
+                    "Unable to update invoice",
+                    "UPDATE_ERROR",
+                    ex.Message);
+            }
+        }
+
+        #endregion
+
+        #region Delete Invoice
+
+        public async Task<ApiResponse<string>> DeleteAsync(int id)
+        {
+            try
+            {
+                var invoice = await _context.APInvoices
+                    .Include(x => x.Payments)
+                    .FirstOrDefaultAsync(x => x.APInvoiceId == id);
+
+                if (invoice == null)
+                {
+                    return ApiResponseHelper.Failure<string>(
+                        "AP Invoice not found",
+                        "NOT_FOUND",
+                        "Invalid Invoice Id");
+                }
+
+                if (invoice.ApprovalStatus == "Approved")
+                {
+                    return ApiResponseHelper.Failure<string>(
+                        "Approved AP Invoice cannot be deleted",
+                        "INVALID_OPERATION",
+                        "Invoice already approved");
+                }
+
+                if (invoice.PaymentStatus == "Paid")
+                {
+                    return ApiResponseHelper.Failure<string>(
+                        "Paid AP Invoice cannot be deleted",
+                        "INVALID_OPERATION",
+                        "Invoice already paid");
+                }
+
+                if (invoice.Payments != null && invoice.Payments.Any())
+                {
+                    return ApiResponseHelper.Failure<string>(
+                        "Invoice cannot be deleted because payment has already been recorded",
+                        "INVALID_OPERATION",
+                        "Payment exists");
+                }
+
+                _context.APInvoices.Remove(invoice);
+
+                await _context.SaveChangesAsync();
+
+                _cache.Remove(CacheKey);
+
+                return ApiResponseHelper.SuccessRes(
+                    "AP Invoice Deleted Successfully");
+            }
+            catch (Exception ex)
+            {
+                return ApiResponseHelper.Failure<string>(
+                    "Unable to delete invoice",
+                    "DELETE_ERROR",
+                    ex.Message);
+            }
+        }
+
+        #endregion
     }
 
 }

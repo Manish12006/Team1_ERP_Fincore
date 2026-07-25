@@ -1,116 +1,91 @@
-﻿using AutoMapper;
-using Fincore.Application.DTO.Payment;
-using Fincore.Domain.Models;
-using Fincore.Infrastructure.Data;
-using Microsoft.AspNetCore.Http;
+﻿using Fincore.Application.DTO.Payment.AccountsReceivable.Requests;
+using Fincore.Application.DTO.Payment.APInvoice.Requests;
+using Fincore.Application.Interfaces.IPayment;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
-namespace Fincore.API.Controllers.Payment
+namespace FINCORE.API.Controllers.V1
 {
-    [Route("api/[controller]")]
     [ApiController]
+    [EnableRateLimiting("FixedPolicy")]
+    [Route("api/v1/ar")]
     public class ARInvoiceController : ControllerBase
     {
+        private readonly IARInvoiceService arInvoiceService;
 
-
-        private readonly AppDbContext dbContext;
-
-        private readonly IMapper mapper;
-
-        public ARInvoiceController(AppDbContext dbContext, IMapper mapper)
+        public ARInvoiceController(IARInvoiceService arInvoiceService)
         {
-            this.dbContext = dbContext;
-            this.mapper = mapper;
+            this.arInvoiceService = arInvoiceService;
         }
 
-
-        [HttpGet]
-        public IActionResult GetAll_AR_Invoice()
+        // Create Invoice
+        [HttpPost("invoices")]
+        public async Task<IActionResult> CreateInvoice(
+            [FromBody] CreateARInvoiceRequestDto request)
         {
-            var AllAR_Invoice = dbContext.ARInvoices.ToList();
-
-            return Ok(AllAR_Invoice);
+            var result = await arInvoiceService.CreateInvoiceAsync(request);
+            return Ok(result);
         }
 
-
-
-
-        [HttpGet]
-        [Route("{id:int}")]
-        public IActionResult GetARInvoiceById(int id)
+        // Get All Invoices
+        [HttpGet("invoices")]
+        public async Task<IActionResult> GetAllInvoices(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10)
         {
-            var rev = dbContext.ARInvoices.Find(id);
-
-            if (rev is null)
-            {
-                return NotFound();
-            }
-
-            return Ok(rev);
+            var result = await arInvoiceService.GetAllInvoicesAsync(page, pageSize);
+            return Ok(result);
         }
 
-
-
-        [HttpPost]
-        public IActionResult AddARInvoice(ARInvoiceDTO addARInvoicesDTO)
+        // Get Invoice By Id
+        [HttpGet("invoices/{id:int}")]
+        public async Task<IActionResult> GetInvoiceById(int id)
         {
-          
-            var res = mapper.Map<ARInvoice>(addARInvoicesDTO);
-
-            dbContext.ARInvoices.Add(res);
-            dbContext.SaveChanges();
-            return Ok(res);
+            var result = await arInvoiceService.GetInvoiceByIdAsync(id);
+            return Ok(result);
         }
 
-
-        [HttpPut]
-        [Route("{id:int}")]
-        public IActionResult UptARInvoice(int id, ARInvoiceDTO uptAR)
+        // Update Invoice
+        [HttpPut("invoices/{id:int}")]
+        public async Task<IActionResult> UpdateInvoice(
+            int id,
+            [FromBody] UpdateARInvoiceRequestDto request)
         {
-            var rev = dbContext.ARInvoices.Find(id);
-
-            if (rev == null)
-            {
-                return NotFound();
-            }
-
-            mapper.Map(uptAR, rev);  
-
-            dbContext.SaveChanges();
-
-            return Ok(rev);
+            var result = await arInvoiceService.UpdateInvoiceAsync(id, request);
+            return Ok(result);
         }
 
-
-
-        [HttpDelete]
-        [Route("{id:int}")]
-        public IActionResult DeleteARInvoice(int id)
+        // Delete Invoice
+        [HttpDelete("invoices/{id:int}")]
+        public async Task<IActionResult> DeleteInvoice(int id)
         {
-            var rev = dbContext.ARInvoices.Find(id);
-
-            if (rev is null)
-            {
-                return NotFound();
-            }
-
-            dbContext.ARInvoices.Remove(rev);
-            dbContext.SaveChanges();
-
-            return Ok();
+            var result = await arInvoiceService.DeleteInvoiceAsync(id);
+            return Ok(result);
         }
 
+        // Receive Payment
+        [HttpPost("payments")]
+        public async Task<IActionResult> ReceivePayment(
+            [FromBody] CreateARPaymentRequestDto request)
+        {
+            var result = await arInvoiceService.ReceivePaymentAsync(request);
+            return Ok(result);
+        }
 
+        // Outstanding Report
+        [HttpGet("outstanding")]
+        public async Task<IActionResult> GetOutstandingInvoices()
+        {
+            var result = await arInvoiceService.GetOutstandingInvoicesAsync();
+            return Ok(result);
+        }
 
-
-
-
-
-
-
-
-
-
-
+        // Aging Report
+        [HttpGet("aging")]
+        public async Task<IActionResult> GetAgingReport()
+        {
+            var result = await arInvoiceService.GetAgingReportAsync();
+            return Ok(result);
+        }
     }
 }
