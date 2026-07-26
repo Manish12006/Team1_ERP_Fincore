@@ -20,10 +20,11 @@ namespace Fincore.API.Controllers.MasterTable
         [HttpGet]
         public async Task<IActionResult> GetAllEmployees(
             int pageNumber = 1,
-            int pageSize = 10)
+            int pageSize = 10,
+            string? search=null)
         {
             var response = await employeeService
-                .GetAllEmployeesAsync(pageNumber, pageSize);
+                .GetAllEmployeesAsync(pageNumber, pageSize,search);
 
             if (!response.success)
                 return BadRequest(response);
