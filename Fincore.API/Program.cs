@@ -186,6 +186,17 @@ builder.Services.AddRateLimiter(options =>
         policy.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
     });
 
+    options.AddPolicy("LoginPolicy", context =>
+     RateLimitPartition.GetFixedWindowLimiter(
+         partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+         factory: _ => new FixedWindowRateLimiterOptions
+         {
+             PermitLimit = 5,
+             Window = TimeSpan.FromMinutes(5),
+             QueueLimit = 0,
+             QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+         }));
+
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 });
 

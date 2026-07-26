@@ -12,10 +12,6 @@ namespace Fincore.Application.DTO.MasterTable
         [Required]
         public string AccountName { get; set; }
 
-        [Required]
-        public string AccountType { get; set; }
-
-        [Required]
-        public byte IsActive { get; set; }
+    
     }
 }
