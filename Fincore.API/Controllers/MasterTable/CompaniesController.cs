@@ -41,9 +41,9 @@ namespace Fincore.API.Controllers.MasterTable
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAllCompanies(int page = 1, int limit = 10)
+        public async Task<IActionResult> GetAllCompanies(int page = 1, int limit = 10, string? search = null)
         {
-            var result = await companyService.GetAllCompaniesAsync(page, limit);
+            var result = await companyService.GetAllCompaniesAsync(page, limit,search);
 
             return GetResponse(result);
         }

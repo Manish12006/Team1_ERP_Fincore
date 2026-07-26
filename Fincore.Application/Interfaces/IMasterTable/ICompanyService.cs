@@ -12,7 +12,7 @@ namespace Fincore.Application.Interfaces.IMasterTable
     {
         Task<ApiResponse<CompanyDto>> CreateCompanyAsync(CreateCompanyDto dto);
 
-        Task<ApiResponse<List<CompanyDto>>> GetAllCompaniesAsync(int page, int limit);
+        Task<ApiResponse<List<CompanyDto>>> GetAllCompaniesAsync(int page, int limit, string? search);
 
         Task<ApiResponse<CompanyDto>> GetCompanyByIdAsync(int companyId);
 

@@ -2,10 +2,12 @@
 using Fincore.Application.DTO;
 using Fincore.Application.DTO.MasterTable;
 using Fincore.Application.Interfaces.IMasterTable;
+using Fincore.Domain.Enums;
 using Fincore.Domain.Models;
 using Fincore.Infrastructure.CommonHelper;
 using Fincore.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace Fincore.Infrastructure.Services.MasterTable
 {
@@ -13,17 +15,23 @@ namespace Fincore.Infrastructure.Services.MasterTable
     {
         private readonly AppDbContext db;
         private readonly IMapper mapper;
+        private readonly IMemoryCache cache;
+        private static int companyCacheVersion = 1;
 
-        public CompanyService(AppDbContext db, IMapper mapper)
+        public CompanyService(
+            AppDbContext db,
+            IMapper mapper,
+            IMemoryCache cache)
         {
             this.db = db;
             this.mapper = mapper;
+            this.cache = cache;
         }
 
         private IQueryable<Company> GetCompanyQuery()
         {
             return db.Companies
-                .Where(x => x.IsActive == 1)
+                .Where(x => x.IsActive == (byte)IsActive.Active)
                 .Include(x => x.Country)
                 .Include(x => x.MasterType);
         }
@@ -57,7 +65,8 @@ namespace Fincore.Infrastructure.Services.MasterTable
         public async Task<ApiResponse<CompanyDto>> CreateCompanyAsync(CreateCompanyDto dto)
         {
             Company existingCompany = await db.Companies
-                .FirstOrDefaultAsync(x => x.CompanyName.ToLower() == dto.CompanyName.ToLower());
+                .FirstOrDefaultAsync(x =>
+                    x.CompanyName.ToLower() == dto.CompanyName.ToLower());
 
             if (existingCompany != null)
             {
@@ -84,13 +93,15 @@ namespace Fincore.Infrastructure.Services.MasterTable
 
             newCompany.CompanyCode = companyCode;
 
-            newCompany.IsActive = 1;
+            newCompany.IsActive = (byte)IsActive.Active;
 
             newCompany.CreatedAt = DateTime.Now;
             newCompany.CreatedBy = 1;
 
             await db.Companies.AddAsync(newCompany);
             await db.SaveChangesAsync();
+
+            companyCacheVersion++;
 
             await db.Entry(newCompany)
                 .Reference(x => x.Country)
@@ -105,12 +116,24 @@ namespace Fincore.Infrastructure.Services.MasterTable
 
             CompanyDto companyDto = mapper.Map<CompanyDto>(newCompany);
 
-            return ApiResponseHelper.SuccessRes(
+            ApiResponse<CompanyDto> response = ApiResponseHelper.SuccessRes(
                 companyDto,
                 "Company created successfully.");
+
+            string cacheKey = $"company_{newCompany.CompanyId}";
+
+            cache.Set(
+                cacheKey,
+                response,
+                TimeSpan.FromMinutes(5));
+
+            return response;
         }
 
-        public async Task<ApiResponse<List<CompanyDto>>> GetAllCompaniesAsync(int page, int limit)
+        public async Task<ApiResponse<List<CompanyDto>>> GetAllCompaniesAsync(
+            int page,
+            int limit,
+            string? search)
         {
             if (page <= 0)
             {
@@ -122,34 +145,76 @@ namespace Fincore.Infrastructure.Services.MasterTable
                 limit = 10;
             }
 
-            int totalRecords = await db.Companies
-                .Where(x => x.IsActive == 1)
-                .CountAsync();
+            if (!string.IsNullOrEmpty(search))
+            {
+                search = search.Trim();
+            }
 
-            List<Company> companies = await GetCompanyQuery()
+            string cacheKey = $"companies_{companyCacheVersion}_page_{page}_limit_{limit}_search_{search}";
+
+            if (cache.TryGetValue(
+                cacheKey,
+                out ApiResponse<List<CompanyDto>> cachedData))
+            {
+                Console.WriteLine("GET ALL COMPANIES - Data returned from CACHE");
+
+                return cachedData;
+            }
+
+            Console.WriteLine("GET ALL COMPANIES - Data returned from DATABASE");
+
+            IQueryable<Company> query = GetCompanyQuery();
+
+            if (!string.IsNullOrEmpty(search))
+            {
+                query = query.Where(x =>
+                    x.CompanyCode.Contains(search) ||
+                    x.CompanyName.Contains(search));
+            }
+
+            int totalRecords = await query.CountAsync();
+
+            List<Company> companies = await query
                 .OrderBy(x => x.CompanyId)
                 .Skip((page - 1) * limit)
                 .Take(limit)
                 .ToListAsync();
 
-            List<CompanyDto> companyList = mapper.Map<List<CompanyDto>>(companies);
+            List<CompanyDto> companyList =
+                mapper.Map<List<CompanyDto>>(companies);
 
             var metadata = new
             {
                 CurrentPage = page,
                 PageSize = limit,
-                TotalPages = (int)Math.Ceiling((double)totalRecords / limit)
+                TotalPages = (int)Math.Ceiling(
+                    (double)totalRecords / limit)
             };
 
-            return ApiResponseHelper.SuccessRes(
-                companyList,
-                "Companies fetched successfully.",
-                totalRecords,
-                metadata);
+            ApiResponse<List<CompanyDto>> response =
+                ApiResponseHelper.SuccessRes(
+                    companyList,
+                    "Companies fetched successfully.",
+                    totalRecords,
+                    metadata);
+
+            cache.Set(
+                cacheKey,
+                response,
+                TimeSpan.FromMinutes(5));
+
+            return response;
         }
 
         public async Task<ApiResponse<CompanyDto>> GetCompanyByIdAsync(int companyId)
         {
+            string cacheKey = $"company_{companyId}";
+
+            if (cache.TryGetValue(cacheKey, out ApiResponse<CompanyDto> cachedData))
+            {
+                return cachedData;
+            }
+
             Company company = await GetCompanyQuery()
                 .FirstOrDefaultAsync(x => x.CompanyId == companyId);
 
@@ -163,16 +228,22 @@ namespace Fincore.Infrastructure.Services.MasterTable
 
             CompanyDto companyDto = mapper.Map<CompanyDto>(company);
 
-            return ApiResponseHelper.SuccessRes(
+            ApiResponse<CompanyDto> response = ApiResponseHelper.SuccessRes(
                 companyDto,
                 "Company fetched successfully.");
+
+            cache.Set(cacheKey, response, TimeSpan.FromMinutes(5));
+
+            return response;
         }
 
         public async Task<ApiResponse<CompanyDto>> UpdateCompanyAsync(UpdateCompanyDto dto)
         {
+            
             Company company = await GetCompanyQuery()
                 .FirstOrDefaultAsync(x => x.CompanyId == dto.CompanyId);
 
+            
             if (company == null)
             {
                 return ApiResponseHelper.Failure<CompanyDto>(
@@ -210,6 +281,8 @@ namespace Fincore.Infrastructure.Services.MasterTable
 
             await db.SaveChangesAsync();
 
+            companyCacheVersion++;
+
             await db.Entry(company)
                 .Reference(x => x.Country)
                 .LoadAsync();
@@ -223,9 +296,20 @@ namespace Fincore.Infrastructure.Services.MasterTable
 
             CompanyDto companyDto = mapper.Map<CompanyDto>(company);
 
-            return ApiResponseHelper.SuccessRes(
+            ApiResponse<CompanyDto> response = ApiResponseHelper.SuccessRes(
                 companyDto,
                 "Company updated successfully.");
+
+            string cacheKey = $"company_{company.CompanyId}";
+
+            cache.Remove(cacheKey);
+
+            cache.Set(
+                cacheKey,
+                response,
+                TimeSpan.FromMinutes(5));
+
+            return response;
         }
 
         public async Task<ApiResponse<string>> DeleteCompanyAsync(int companyId)
@@ -241,8 +325,7 @@ namespace Fincore.Infrastructure.Services.MasterTable
                     "Invalid Company Id.");
             }
 
-            
-            if (company.IsActive == 0)
+            if (company.IsActive == (byte)IsActive.Inactive)
             {
                 return ApiResponseHelper.Failure<string>(
                     "Company already deleted.",
@@ -250,15 +333,19 @@ namespace Fincore.Infrastructure.Services.MasterTable
                     "Company is already inactive.");
             }
 
+            company.IsActive = (byte)IsActive.Inactive;
 
-            company.IsActive = 0;
             company.ModifiedAt = DateTime.Now;
             company.ModifiedBy = 1;
 
-         
             await db.SaveChangesAsync();
 
-        
+            companyCacheVersion++;
+
+            string cacheKey = $"company_{companyId}";
+
+            cache.Remove(cacheKey);
+
             return ApiResponseHelper.SuccessRes(
                 "Deleted",
                 "Company deleted successfully.");
