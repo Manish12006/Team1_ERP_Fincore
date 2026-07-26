@@ -2,10 +2,12 @@
 using Fincore.Application.DTO;
 using Fincore.Application.DTO.MasterTable;
 using Fincore.Application.Interfaces.IMasterTable;
+using Fincore.Domain.Enums;
 using Fincore.Domain.Models;
 using Fincore.Infrastructure.CommonHelper;
 using Fincore.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace Fincore.Infrastructure.Services.MasterTable
 {
@@ -13,39 +15,85 @@ namespace Fincore.Infrastructure.Services.MasterTable
     {
         private readonly AppDbContext db;
         private readonly IMapper mapper;
+        private readonly IMemoryCache cache;
+        private static int permissionCacheVersion = 1;
 
         public PermissionService(
             AppDbContext db,
-            IMapper mapper)
+            IMapper mapper,
+            IMemoryCache cache)
         {
             this.db = db;
             this.mapper = mapper;
+            this.cache = cache;
         }
 
-        public async Task<ApiResponse<List<PermissionDto>>>
-            GetAllPermissionsAsync(
-                int pageNumber,
-                int pageSize)
+        private IQueryable<Permission> GetPermissionQuery()
+        {
+            return db.Permissions
+                .Where(x => x.IsActive == (byte)IsActive.Active)
+                .Include(x => x.Role)
+                .Include(x => x.MasterType);
+        }
+
+        public async Task<ApiResponse<List<PermissionDto>>> GetAllPermissionsAsync(
+            int pageNumber,
+            int pageSize,
+            string? search)
         {
             try
             {
                 if (pageNumber <= 0)
+                {
                     pageNumber = 1;
+                }
 
                 if (pageSize <= 0)
+                {
                     pageSize = 10;
+                }
 
-                var totalRecords = await db.Permissions.CountAsync();
+                if (!string.IsNullOrEmpty(search))
+                {
+                    search = search.Trim();
+                }
 
-                var permissions = await db.Permissions
-                    .Include(x => x.Role)
-                    .Include(x => x.MasterType)
+                string cacheKey =
+                    $"permissions_{permissionCacheVersion}_page_{pageNumber}_size_{pageSize}_search_{search}";
+
+                if (cache.TryGetValue(
+                    cacheKey,
+                    out ApiResponse<List<PermissionDto>> cachedData))
+                {
+                    Console.WriteLine(
+                        "GET ALL PERMISSIONS - Data returned from CACHE");
+
+                    return cachedData;
+                }
+
+                Console.WriteLine(
+                    "GET ALL PERMISSIONS - Data returned from DATABASE");
+
+                IQueryable<Permission> query = GetPermissionQuery();
+
+                if (!string.IsNullOrEmpty(search))
+                {
+                    query = query.Where(x =>
+                        x.PermissionName.Contains(search) ||
+                        x.Role.RoleName.Contains(search) ||
+                        (x.MasterType != null &&
+                         x.MasterType.MasterTypeName.Contains(search)));
+                }
+
+                int totalRecords = await query.CountAsync();
+
+                List<Permission> permissions = await query
                     .OrderBy(x => x.PermissionId)
                     .Skip((pageNumber - 1) * pageSize)
                     .Take(pageSize)
                     .ToListAsync();
 
-                var permissionDtos =
+                List<PermissionDto> permissionDtos =
                     mapper.Map<List<PermissionDto>>(permissions);
 
                 var metadata = new
@@ -53,14 +101,22 @@ namespace Fincore.Infrastructure.Services.MasterTable
                     pageNumber,
                     pageSize,
                     totalPages = (int)Math.Ceiling(
-                        totalRecords / (double)pageSize)
+                        (double)totalRecords / pageSize)
                 };
 
-                return ApiResponseHelper.SuccessRes(
-                    permissionDtos,
-                    "Permissions retrieved successfully.",
-                    totalRecords,
-                    metadata);
+                ApiResponse<List<PermissionDto>> response =
+                    ApiResponseHelper.SuccessRes(
+                        permissionDtos,
+                        "Permissions retrieved successfully.",
+                        totalRecords,
+                        metadata);
+
+                cache.Set(
+                    cacheKey,
+                    response,
+                    TimeSpan.FromMinutes(5));
+
+                return response;
             }
             catch (Exception ex)
             {
@@ -71,16 +127,28 @@ namespace Fincore.Infrastructure.Services.MasterTable
             }
         }
 
-        public async Task<ApiResponse<PermissionDto>>
-            GetPermissionByIdAsync(int id)
+        public async Task<ApiResponse<PermissionDto>> GetPermissionByIdAsync(
+            int id)
         {
             try
             {
-                var permission = await db.Permissions
-                    .Include(x => x.Role)
-                    .Include(x => x.MasterType)
-                    .FirstOrDefaultAsync(
-                        x => x.PermissionId == id);
+                string cacheKey = $"permission_{id}";
+
+                if (cache.TryGetValue(
+                    cacheKey,
+                    out ApiResponse<PermissionDto> cachedData))
+                {
+                    Console.WriteLine(
+                        "GET PERMISSION BY ID - Data returned from CACHE");
+
+                    return cachedData;
+                }
+
+                Console.WriteLine(
+                    "GET PERMISSION BY ID - Data returned from DATABASE");
+
+                Permission permission = await GetPermissionQuery()
+                    .FirstOrDefaultAsync(x => x.PermissionId == id);
 
                 if (permission == null)
                 {
@@ -90,12 +158,20 @@ namespace Fincore.Infrastructure.Services.MasterTable
                         $"Permission with ID {id} does not exist.");
                 }
 
-                var permissionDto =
+                PermissionDto permissionDto =
                     mapper.Map<PermissionDto>(permission);
 
-                return ApiResponseHelper.SuccessRes(
-                    permissionDto,
-                    "Permission retrieved successfully.");
+                ApiResponse<PermissionDto> response =
+                    ApiResponseHelper.SuccessRes(
+                        permissionDto,
+                        "Permission retrieved successfully.");
+
+                cache.Set(
+                    cacheKey,
+                    response,
+                    TimeSpan.FromMinutes(5));
+
+                return response;
             }
             catch (Exception ex)
             {
@@ -106,13 +182,12 @@ namespace Fincore.Infrastructure.Services.MasterTable
             }
         }
 
-        public async Task<ApiResponse<PermissionDto>>
-            CreatePermissionAsync(
-                CreatePermissionDto createPermissionDto)
+        public async Task<ApiResponse<PermissionDto>> CreatePermissionAsync(
+            CreatePermissionDto createPermissionDto)
         {
             try
             {
-                var roleExists = await db.Roles
+                bool roleExists = await db.Roles
                     .AnyAsync(x =>
                         x.RoleId == createPermissionDto.RoleId);
 
@@ -126,7 +201,7 @@ namespace Fincore.Infrastructure.Services.MasterTable
 
                 if (createPermissionDto.MasterTypeId.HasValue)
                 {
-                    var masterTypeExists = await db.MasterTypes
+                    bool masterTypeExists = await db.MasterTypes
                         .AnyAsync(x =>
                             x.MasterTypeId ==
                             createPermissionDto.MasterTypeId.Value);
@@ -140,7 +215,7 @@ namespace Fincore.Infrastructure.Services.MasterTable
                     }
                 }
 
-                var createdByExists = await db.Users
+                bool createdByExists = await db.Users
                     .AnyAsync(x =>
                         x.UserId == createPermissionDto.CreatedBy);
 
@@ -152,34 +227,55 @@ namespace Fincore.Infrastructure.Services.MasterTable
                         $"User with ID {createPermissionDto.CreatedBy} does not exist.");
                 }
 
+                Permission existingPermission = await db.Permissions
+                    .FirstOrDefaultAsync(x =>
+                        x.PermissionName.ToLower() ==
+                        createPermissionDto.PermissionName.ToLower() &&
+                        x.RoleId == createPermissionDto.RoleId);
 
-                var permission =
+                if (existingPermission != null)
+                {
+                    return ApiResponseHelper.Failure<PermissionDto>(
+                        "Permission already exists.",
+                        "DUPLICATE_PERMISSION",
+                        "Permission name already exists for this role.");
+                }
+
+                Permission permission =
                     mapper.Map<Permission>(createPermissionDto);
 
                 permission.PermissionId = 0;
-
-                permission.CreatedAt = DateTime.UtcNow;
-                permission.ModifiedAt = DateTime.UtcNow;
-                permission.ModifiedBy =
-                    createPermissionDto.CreatedBy;
+                permission.IsActive = (byte)IsActive.Active;
+                permission.CreatedAt = DateTime.Now;
+                permission.ModifiedAt = DateTime.Now;
+                permission.ModifiedBy = createPermissionDto.CreatedBy;
 
                 await db.Permissions.AddAsync(permission);
                 await db.SaveChangesAsync();
 
+                permissionCacheVersion++;
 
-                var createdPermission = await db.Permissions
-                    .Include(x => x.Role)
-                    .Include(x => x.MasterType)
+                Permission createdPermission = await GetPermissionQuery()
                     .FirstOrDefaultAsync(
-                        x => x.PermissionId ==
-                        permission.PermissionId);
+                        x => x.PermissionId == permission.PermissionId);
 
-                var result =
+                PermissionDto result =
                     mapper.Map<PermissionDto>(createdPermission);
 
-                return ApiResponseHelper.SuccessRes(
-                    result,
-                    "Permission created successfully.");
+                ApiResponse<PermissionDto> response =
+                    ApiResponseHelper.SuccessRes(
+                        result,
+                        "Permission created successfully.");
+
+                string cacheKey =
+                    $"permission_{permission.PermissionId}";
+
+                cache.Set(
+                    cacheKey,
+                    response,
+                    TimeSpan.FromMinutes(5));
+
+                return response;
             }
             catch (Exception ex)
             {
@@ -190,14 +286,13 @@ namespace Fincore.Infrastructure.Services.MasterTable
             }
         }
 
-        public async Task<ApiResponse<PermissionDto>>
-            UpdatePermissionAsync(
-                int id,
-                UpdatePermissionDto updatePermissionDto)
+        public async Task<ApiResponse<PermissionDto>> UpdatePermissionAsync(
+            int id,
+            UpdatePermissionDto updatePermissionDto)
         {
             try
             {
-                var permission = await db.Permissions
+                Permission permission = await GetPermissionQuery()
                     .FirstOrDefaultAsync(
                         x => x.PermissionId == id);
 
@@ -209,7 +304,7 @@ namespace Fincore.Infrastructure.Services.MasterTable
                         $"Permission with ID {id} does not exist.");
                 }
 
-                var roleExists = await db.Roles
+                bool roleExists = await db.Roles
                     .AnyAsync(x =>
                         x.RoleId == updatePermissionDto.RoleId);
 
@@ -223,7 +318,7 @@ namespace Fincore.Infrastructure.Services.MasterTable
 
                 if (updatePermissionDto.MasterTypeId.HasValue)
                 {
-                    var masterTypeExists = await db.MasterTypes
+                    bool masterTypeExists = await db.MasterTypes
                         .AnyAsync(x =>
                             x.MasterTypeId ==
                             updatePermissionDto.MasterTypeId.Value);
@@ -237,10 +332,9 @@ namespace Fincore.Infrastructure.Services.MasterTable
                     }
                 }
 
-                var modifiedByExists = await db.Users
+                bool modifiedByExists = await db.Users
                     .AnyAsync(x =>
-                        x.UserId ==
-                        updatePermissionDto.ModifiedBy);
+                        x.UserId == updatePermissionDto.ModifiedBy);
 
                 if (!modifiedByExists)
                 {
@@ -250,6 +344,20 @@ namespace Fincore.Infrastructure.Services.MasterTable
                         $"User with ID {updatePermissionDto.ModifiedBy} does not exist.");
                 }
 
+                Permission existingPermission = await db.Permissions
+                    .FirstOrDefaultAsync(x =>
+                        x.PermissionName.ToLower() ==
+                        updatePermissionDto.PermissionName.ToLower() &&
+                        x.RoleId == updatePermissionDto.RoleId &&
+                        x.PermissionId != id);
+
+                if (existingPermission != null)
+                {
+                    return ApiResponseHelper.Failure<PermissionDto>(
+                        "Permission already exists.",
+                        "DUPLICATE_PERMISSION",
+                        "Permission name already exists for this role.");
+                }
 
                 permission.PermissionName =
                     updatePermissionDto.PermissionName;
@@ -267,24 +375,34 @@ namespace Fincore.Infrastructure.Services.MasterTable
                     updatePermissionDto.ModifiedBy;
 
                 permission.ModifiedAt =
-                    DateTime.UtcNow;
-
+                    DateTime.Now;
 
                 await db.SaveChangesAsync();
 
+                permissionCacheVersion++;
 
-                var updatedPermission = await db.Permissions
-                    .Include(x => x.Role)
-                    .Include(x => x.MasterType)
+                Permission updatedPermission = await GetPermissionQuery()
                     .FirstOrDefaultAsync(
                         x => x.PermissionId == id);
 
-                var result =
+                PermissionDto result =
                     mapper.Map<PermissionDto>(updatedPermission);
 
-                return ApiResponseHelper.SuccessRes(
-                    result,
-                    "Permission updated successfully.");
+                ApiResponse<PermissionDto> response =
+                    ApiResponseHelper.SuccessRes(
+                        result,
+                        "Permission updated successfully.");
+
+                string cacheKey = $"permission_{id}";
+
+                cache.Remove(cacheKey);
+
+                cache.Set(
+                    cacheKey,
+                    response,
+                    TimeSpan.FromMinutes(5));
+
+                return response;
             }
             catch (Exception ex)
             {
@@ -295,12 +413,11 @@ namespace Fincore.Infrastructure.Services.MasterTable
             }
         }
 
-        public async Task<ApiResponse<bool>>
-            DeletePermissionAsync(int id)
+        public async Task<ApiResponse<bool>> DeletePermissionAsync(int id)
         {
             try
             {
-                var permission = await db.Permissions
+                Permission permission = await db.Permissions
                     .FirstOrDefaultAsync(
                         x => x.PermissionId == id);
 
@@ -312,9 +429,28 @@ namespace Fincore.Infrastructure.Services.MasterTable
                         $"Permission with ID {id} does not exist.");
                 }
 
-                db.Permissions.Remove(permission);
+                if (permission.IsActive ==
+                    (byte)IsActive.Inactive)
+                {
+                    return ApiResponseHelper.Failure<bool>(
+                        "Permission already deleted.",
+                        "PERMISSION_ALREADY_DELETED",
+                        "Permission is already inactive.");
+                }
+
+                permission.IsActive =
+                    (byte)IsActive.Inactive;
+
+                permission.ModifiedAt =
+                    DateTime.Now;
 
                 await db.SaveChangesAsync();
+
+                permissionCacheVersion++;
+
+                string cacheKey = $"permission_{id}";
+
+                cache.Remove(cacheKey);
 
                 return ApiResponseHelper.SuccessRes(
                     true,
