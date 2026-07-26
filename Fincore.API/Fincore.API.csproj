@@ -22,6 +22,7 @@
     <Folder Include="Controllers\MasterTable\" />
     <Folder Include="Controllers\Logs\" />
     <Folder Include="Controllers\Opex\" />
+    <Folder Include="Uploads\Documents\Customer\" />
   </ItemGroup>
 
   <ItemGroup>

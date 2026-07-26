@@ -45,5 +45,6 @@ namespace Fincore.Domain.Models
 
         public DateTime? CreatedAt { get; set; }
         public DateTime? ModifiedAt { get; set; }
+        
     }
 }

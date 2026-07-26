@@ -1,22 +1,20 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using Microsoft.AspNetCore.Http;
+using System.ComponentModel.DataAnnotations;
 
 namespace Fincore.Application.DTO.MasterTable
 {
     public class CreateDocumentDto
     {
+        [Required(ErrorMessage = "DocumentTypeId Is Requied")]
         public int DocumentTypeId { get; set; }
+        [Required(ErrorMessage = "UserId Is Requied")]
         public int UserId { get; set; }
+        [Required(ErrorMessage ="Entity Is Requied")]
+        
         public int? EntityId { get; set; }
+        [Required(ErrorMessage = "MasterTypeId Is Requied")]
         public int? MasterTypeId { get; set; }
-
-        public string FileName { get; set; }
-        public string FileType { get; set; }
-        public string FilePath { get; set; }
-         public DateTime? CreatedAt { get; set; }
-        public DateTime? ModifiedAt { get; set; }
+       
+        public IFormFile? FilePath { get; set; }
     }
 }
