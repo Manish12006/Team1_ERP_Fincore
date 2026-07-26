@@ -20,10 +20,11 @@ namespace Fincore.API.Controllers.MasterTable
         [HttpGet]
         public async Task<IActionResult> GetAllRoles(
             int pageNumber = 1,
-            int pageSize = 10)
+            int pageSize = 10,
+            string? search=null)
         {
             var response = await roleService
-                .GetAllRolesAsync(pageNumber, pageSize);
+                .GetAllRolesAsync(pageNumber, pageSize,search);
 
             if (!response.success)
                 return BadRequest(response);

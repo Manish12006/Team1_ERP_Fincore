@@ -5,7 +5,7 @@ namespace Fincore.Application.Interfaces.IMasterTable
 {
     public interface IPermissionService
     {
-        Task<ApiResponse<List<PermissionDto>>> GetAllPermissionsAsync(int pageNumber,int pageSize);
+        Task<ApiResponse<List<PermissionDto>>> GetAllPermissionsAsync(int pageNumber,int pageSize, string? search);
 
         Task<ApiResponse<PermissionDto>> GetPermissionByIdAsync(int id);
 

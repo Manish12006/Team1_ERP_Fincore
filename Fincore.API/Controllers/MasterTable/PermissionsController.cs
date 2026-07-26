@@ -21,10 +21,11 @@ namespace Fincore.API.Controllers.MasterTable
         [HttpGet]
         public async Task<IActionResult> GetAllPermissions(
             int pageNumber = 1,
-            int pageSize = 10)
+            int pageSize = 10,
+             string? search=null)
         {
             var response = await permissionService
-                .GetAllPermissionsAsync(pageNumber, pageSize);
+                .GetAllPermissionsAsync(pageNumber, pageSize,search);
 
             if (!response.success)
                 return BadRequest(response);

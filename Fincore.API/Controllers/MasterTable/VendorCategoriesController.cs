@@ -21,10 +21,11 @@ namespace Fincore.API.Controllers.MasterTable
         [HttpGet]
         public async Task<IActionResult> GetAllVendorCategories(
             int pageNumber = 1,
-            int pageSize = 10)
+            int pageSize = 10,
+             string? search=null)
         {
             var response = await vendorCategoryService
-                .GetAllVendorCategoriesAsync(pageNumber, pageSize);
+                .GetAllVendorCategoriesAsync(pageNumber, pageSize,search);
 
             if (!response.success)
                 return BadRequest(response);

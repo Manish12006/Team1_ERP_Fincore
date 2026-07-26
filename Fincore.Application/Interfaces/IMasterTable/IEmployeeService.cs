@@ -5,7 +5,7 @@ namespace Fincore.Application.Interfaces.IMasterTable
 {
     public interface IEmployeeService
     {
-        Task<ApiResponse<List<EmployeeDto>>> GetAllEmployeesAsync(int pageNumber,int pageSize);
+        Task<ApiResponse<List<EmployeeDto>>> GetAllEmployeesAsync(int pageNumber,int pageSize, string? search);
 
         Task<ApiResponse<EmployeeDto>> GetEmployeeByIdAsync(int id);
 
@@ -13,6 +13,6 @@ namespace Fincore.Application.Interfaces.IMasterTable
 
         Task<ApiResponse<EmployeeDto>> UpdateEmployeeAsync(int id,UpdateEmployeeDto updateEmployeeDto);
 
-        Task<ApiResponse<bool>> DeleteEmployeeAsync(int id);
+        Task<ApiResponse<string>> DeleteEmployeeAsync(int id);
     }
 }

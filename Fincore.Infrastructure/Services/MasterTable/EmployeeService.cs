@@ -2,10 +2,12 @@
 using Fincore.Application.DTO;
 using Fincore.Application.DTO.MasterTable;
 using Fincore.Application.Interfaces.IMasterTable;
+using Fincore.Domain.Enums;
 using Fincore.Domain.Models;
 using Fincore.Infrastructure.CommonHelper;
 using Fincore.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace Fincore.Infrastructure.Services.MasterTable
 {
@@ -13,57 +15,110 @@ namespace Fincore.Infrastructure.Services.MasterTable
     {
         private readonly AppDbContext db;
         private readonly IMapper mapper;
+        private readonly IMemoryCache cache;
+        private static int employeeCacheVersion = 1;
 
         public EmployeeService(
             AppDbContext db,
-            IMapper mapper)
+            IMapper mapper,
+            IMemoryCache cache)
         {
             this.db = db;
             this.mapper = mapper;
+            this.cache = cache;
+        }
+
+        private IQueryable<Employee> GetEmployeeQuery()
+        {
+            return db.Employees
+                .Where(x => x.IsActive == (byte)IsActive.Active)
+                .Include(x => x.User)
+                .Include(x => x.Department)
+                .Include(x => x.DesignationRole)
+                .Include(x => x.Company)
+                .Include(x => x.ReportingManagerEmployee)
+                    .ThenInclude(x => x.User);
         }
 
         public async Task<ApiResponse<List<EmployeeDto>>> GetAllEmployeesAsync(
             int pageNumber,
-            int pageSize)
+            int pageSize,
+            string? search)
         {
             try
             {
                 if (pageNumber <= 0)
+                {
                     pageNumber = 1;
+                }
 
                 if (pageSize <= 0)
+                {
                     pageSize = 10;
+                }
 
-                var totalRecords = await db.Employees.CountAsync();
+                if (!string.IsNullOrEmpty(search))
+                {
+                    search = search.Trim();
+                }
 
-                var employees = await db.Employees
-                    .Include(x => x.User)
-                    .Include(x => x.Department)
-                    .Include(x => x.DesignationRole)
-                    .Include(x => x.Company)
-                    .Include(x => x.ReportingManagerEmployee)
-                        .ThenInclude(x => x.User)
+                string cacheKey =
+                    $"employees_{employeeCacheVersion}_page_{pageNumber}_size_{pageSize}_search_{search}";
+
+                if (cache.TryGetValue(
+                    cacheKey,
+                    out ApiResponse<List<EmployeeDto>> cachedData))
+                {
+                    Console.WriteLine(
+                        "GET ALL EMPLOYEES - Data returned from CACHE");
+
+                    return cachedData;
+                }
+
+                Console.WriteLine(
+                    "GET ALL EMPLOYEES - Data returned from DATABASE");
+
+                IQueryable<Employee> query = GetEmployeeQuery();
+
+                if (!string.IsNullOrEmpty(search))
+                {
+                    query = query.Where(x =>
+                        x.EmployeeCode.Contains(search) ||
+                        x.User.FullName.Contains(search));
+                }
+
+                int totalRecords = await query.CountAsync();
+
+                List<Employee> employees = await query
                     .OrderBy(x => x.EmployeeId)
                     .Skip((pageNumber - 1) * pageSize)
                     .Take(pageSize)
                     .ToListAsync();
 
-                var employeeDtos =
+                List<EmployeeDto> employeeDtos =
                     mapper.Map<List<EmployeeDto>>(employees);
 
                 var metadata = new
                 {
-                    pageNumber,
-                    pageSize,
-                    totalPages = (int)Math.Ceiling(
-                        totalRecords / (double)pageSize)
+                    CurrentPage = pageNumber,
+                    PageSize = pageSize,
+                    TotalPages = (int)Math.Ceiling(
+                        (double)totalRecords / pageSize)
                 };
 
-                return ApiResponseHelper.SuccessRes(
-                    employeeDtos,
-                    "Employees retrieved successfully.",
-                    totalRecords,
-                    metadata);
+                ApiResponse<List<EmployeeDto>> response =
+                    ApiResponseHelper.SuccessRes(
+                        employeeDtos,
+                        "Employees fetched successfully.",
+                        totalRecords,
+                        metadata);
+
+                cache.Set(
+                    cacheKey,
+                    response,
+                    TimeSpan.FromMinutes(5));
+
+                return response;
             }
             catch (Exception ex)
             {
@@ -79,13 +134,22 @@ namespace Fincore.Infrastructure.Services.MasterTable
         {
             try
             {
-                var employee = await db.Employees
-                    .Include(x => x.User)
-                    .Include(x => x.Department)
-                    .Include(x => x.DesignationRole)
-                    .Include(x => x.Company)
-                    .Include(x => x.ReportingManagerEmployee)
-                        .ThenInclude(x => x.User)
+                string cacheKey = $"employee_{id}";
+
+                if (cache.TryGetValue(
+                    cacheKey,
+                    out ApiResponse<EmployeeDto> cachedData))
+                {
+                    Console.WriteLine(
+                        "GET EMPLOYEE BY ID - Data returned from CACHE");
+
+                    return cachedData;
+                }
+
+                Console.WriteLine(
+                    "GET EMPLOYEE BY ID - Data returned from DATABASE");
+
+                Employee employee = await GetEmployeeQuery()
                     .FirstOrDefaultAsync(
                         x => x.EmployeeId == id);
 
@@ -93,16 +157,24 @@ namespace Fincore.Infrastructure.Services.MasterTable
                 {
                     return ApiResponseHelper.Failure<EmployeeDto>(
                         "Employee not found.",
-                        "EMPLOYEE_NOT_FOUND",
-                        $"Employee with ID {id} does not exist.");
+                        "404",
+                        "Invalid Employee Id.");
                 }
 
-                var employeeDto =
+                EmployeeDto employeeDto =
                     mapper.Map<EmployeeDto>(employee);
 
-                return ApiResponseHelper.SuccessRes(
-                    employeeDto,
-                    "Employee retrieved successfully.");
+                ApiResponse<EmployeeDto> response =
+                    ApiResponseHelper.SuccessRes(
+                        employeeDto,
+                        "Employee fetched successfully.");
+
+                cache.Set(
+                    cacheKey,
+                    response,
+                    TimeSpan.FromMinutes(5));
+
+                return response;
             }
             catch (Exception ex)
             {
@@ -118,19 +190,20 @@ namespace Fincore.Infrastructure.Services.MasterTable
         {
             try
             {
-                var employeeCodeExists = await db.Employees
-                    .AnyAsync(x =>
-                        x.EmployeeCode == createEmployeeDto.EmployeeCode);
+                Employee existingEmployee = await db.Employees
+                    .FirstOrDefaultAsync(x =>
+                        x.EmployeeCode ==
+                        createEmployeeDto.EmployeeCode);
 
-                if (employeeCodeExists)
+                if (existingEmployee != null)
                 {
                     return ApiResponseHelper.Failure<EmployeeDto>(
                         "Employee code already exists.",
-                        "DUPLICATE_EMPLOYEE_CODE",
-                        $"Employee code {createEmployeeDto.EmployeeCode} already exists.");
+                        "409",
+                        "Employee code already exists.");
                 }
 
-                var userExists = await db.Users
+                bool userExists = await db.Users
                     .AnyAsync(x =>
                         x.UserId == createEmployeeDto.UserId);
 
@@ -138,11 +211,11 @@ namespace Fincore.Infrastructure.Services.MasterTable
                 {
                     return ApiResponseHelper.Failure<EmployeeDto>(
                         "User not found.",
-                        "USER_NOT_FOUND",
-                        $"User with ID {createEmployeeDto.UserId} does not exist.");
+                        "404",
+                        "Invalid User Id.");
                 }
 
-                var userEmployeeExists = await db.Employees
+                bool userEmployeeExists = await db.Employees
                     .AnyAsync(x =>
                         x.UserId == createEmployeeDto.UserId);
 
@@ -150,69 +223,74 @@ namespace Fincore.Infrastructure.Services.MasterTable
                 {
                     return ApiResponseHelper.Failure<EmployeeDto>(
                         "User is already assigned to an employee.",
-                        "DUPLICATE_EMPLOYEE_USER",
-                        $"User with ID {createEmployeeDto.UserId} is already linked to an employee.");
+                        "409",
+                        "User is already linked to an employee.");
                 }
 
-
-                var department = await db.Departments
+                Department department = await db.Departments
                     .FirstOrDefaultAsync(x =>
                         x.DepartmentId ==
-                        createEmployeeDto.DepartmentId);
+                        createEmployeeDto.DepartmentId &&
+                        x.IsActive == (byte)IsActive.Active);
 
                 if (department == null)
                 {
                     return ApiResponseHelper.Failure<EmployeeDto>(
                         "Department not found.",
-                        "DEPARTMENT_NOT_FOUND",
-                        $"Department with ID {createEmployeeDto.DepartmentId} does not exist.");
+                        "404",
+                        "Invalid Department Id.");
                 }
 
-                var designationExists = await db.Roles
+                bool designationExists = await db.Roles
                     .AnyAsync(x =>
-                        x.RoleId == createEmployeeDto.Designation);
+                        x.RoleId == createEmployeeDto.Designation &&
+                        x.IsActive == (byte)IsActive.Active);
 
                 if (!designationExists)
                 {
                     return ApiResponseHelper.Failure<EmployeeDto>(
-                        "Designation role not found.",
-                        "DESIGNATION_NOT_FOUND",
-                        $"Role with ID {createEmployeeDto.Designation} does not exist.");
+                        "Designation not found.",
+                        "404",
+                        "Invalid Designation Role Id.");
                 }
 
-                var companyExists = await db.Companies
+                bool companyExists = await db.Companies
                     .AnyAsync(x =>
-                        x.CompanyId == createEmployeeDto.CompanyId);
+                        x.CompanyId == createEmployeeDto.CompanyId &&
+                        x.IsActive == (byte)IsActive.Active);
 
                 if (!companyExists)
                 {
                     return ApiResponseHelper.Failure<EmployeeDto>(
                         "Company not found.",
-                        "COMPANY_NOT_FOUND",
-                        $"Company with ID {createEmployeeDto.CompanyId} does not exist.");
+                        "404",
+                        "Invalid Company Id.");
                 }
 
-                if (department.CompanyId != createEmployeeDto.CompanyId)
+                if (department.CompanyId !=
+                    createEmployeeDto.CompanyId)
                 {
                     return ApiResponseHelper.Failure<EmployeeDto>(
                         "Department does not belong to the selected company.",
-                        "DEPARTMENT_COMPANY_MISMATCH",
-                        $"Department with ID {createEmployeeDto.DepartmentId} does not belong to company with ID {createEmployeeDto.CompanyId}.");
+                        "409",
+                        "Department and Company do not match.");
                 }
 
                 if (createEmployeeDto.ReportingManager.HasValue)
                 {
-                    var reportingManager = await db.Employees
+                    Employee reportingManager = await db.Employees
                         .FirstOrDefaultAsync(x =>
                             x.EmployeeId ==
-                            createEmployeeDto.ReportingManager.Value);
+                            createEmployeeDto.ReportingManager.Value &&
+                            x.IsActive ==
+                            (byte)IsActive.Active);
 
                     if (reportingManager == null)
                     {
                         return ApiResponseHelper.Failure<EmployeeDto>(
                             "Reporting manager not found.",
-                            "REPORTING_MANAGER_NOT_FOUND",
-                            $"Employee with ID {createEmployeeDto.ReportingManager.Value} does not exist.");
+                            "404",
+                            "Invalid Reporting Manager Id.");
                     }
 
                     if (reportingManager.CompanyId !=
@@ -220,35 +298,45 @@ namespace Fincore.Infrastructure.Services.MasterTable
                     {
                         return ApiResponseHelper.Failure<EmployeeDto>(
                             "Reporting manager belongs to another company.",
-                            "REPORTING_MANAGER_COMPANY_MISMATCH",
-                            "Reporting manager must belong to the same company as the employee.");
+                            "409",
+                            "Reporting manager must belong to the same company.");
                     }
                 }
 
-                var employee =
+                Employee employee =
                     mapper.Map<Employee>(createEmployeeDto);
 
                 employee.EmployeeId = 0;
+                employee.IsActive =
+                    (byte)IsActive.Active;
 
                 await db.Employees.AddAsync(employee);
                 await db.SaveChangesAsync();
 
-                var createdEmployee = await db.Employees
-                    .Include(x => x.User)
-                    .Include(x => x.Department)
-                    .Include(x => x.DesignationRole)
-                    .Include(x => x.Company)
-                    .Include(x => x.ReportingManagerEmployee)
-                        .ThenInclude(x => x.User)
-                    .FirstOrDefaultAsync(
-                        x => x.EmployeeId == employee.EmployeeId);
+                employeeCacheVersion++;
 
-                var result =
+                Employee createdEmployee =
+                    await GetEmployeeQuery()
+                        .FirstOrDefaultAsync(x =>
+                            x.EmployeeId == employee.EmployeeId);
+
+                EmployeeDto employeeDto =
                     mapper.Map<EmployeeDto>(createdEmployee);
 
-                return ApiResponseHelper.SuccessRes(
-                    result,
-                    "Employee created successfully.");
+                ApiResponse<EmployeeDto> response =
+                    ApiResponseHelper.SuccessRes(
+                        employeeDto,
+                        "Employee created successfully.");
+
+                string cacheKey =
+                    $"employee_{employee.EmployeeId}";
+
+                cache.Set(
+                    cacheKey,
+                    response,
+                    TimeSpan.FromMinutes(5));
+
+                return response;
             }
             catch (Exception ex)
             {
@@ -265,7 +353,7 @@ namespace Fincore.Infrastructure.Services.MasterTable
         {
             try
             {
-                var employee = await db.Employees
+                Employee employee = await GetEmployeeQuery()
                     .FirstOrDefaultAsync(x =>
                         x.EmployeeId == id);
 
@@ -273,25 +361,26 @@ namespace Fincore.Infrastructure.Services.MasterTable
                 {
                     return ApiResponseHelper.Failure<EmployeeDto>(
                         "Employee not found.",
-                        "EMPLOYEE_NOT_FOUND",
-                        $"Employee with ID {id} does not exist.");
+                        "404",
+                        "Invalid Employee Id.");
                 }
 
-                var employeeCodeExists = await db.Employees
-                    .AnyAsync(x =>
-                        x.EmployeeCode ==
+                Employee existingEmployee =
+                    await db.Employees
+                        .FirstOrDefaultAsync(x =>
+                            x.EmployeeCode ==
                             updateEmployeeDto.EmployeeCode &&
-                        x.EmployeeId != id);
+                            x.EmployeeId != id);
 
-                if (employeeCodeExists)
+                if (existingEmployee != null)
                 {
                     return ApiResponseHelper.Failure<EmployeeDto>(
                         "Employee code already exists.",
-                        "DUPLICATE_EMPLOYEE_CODE",
-                        $"Employee code {updateEmployeeDto.EmployeeCode} already exists.");
+                        "409",
+                        "Employee code already exists.");
                 }
 
-                var userExists = await db.Users
+                bool userExists = await db.Users
                     .AnyAsync(x =>
                         x.UserId == updateEmployeeDto.UserId);
 
@@ -299,11 +388,11 @@ namespace Fincore.Infrastructure.Services.MasterTable
                 {
                     return ApiResponseHelper.Failure<EmployeeDto>(
                         "User not found.",
-                        "USER_NOT_FOUND",
-                        $"User with ID {updateEmployeeDto.UserId} does not exist.");
+                        "404",
+                        "Invalid User Id.");
                 }
 
-                var userEmployeeExists = await db.Employees
+                bool userEmployeeExists = await db.Employees
                     .AnyAsync(x =>
                         x.UserId == updateEmployeeDto.UserId &&
                         x.EmployeeId != id);
@@ -312,53 +401,63 @@ namespace Fincore.Infrastructure.Services.MasterTable
                 {
                     return ApiResponseHelper.Failure<EmployeeDto>(
                         "User is already assigned to another employee.",
-                        "DUPLICATE_EMPLOYEE_USER",
-                        $"User with ID {updateEmployeeDto.UserId} is already linked to another employee.");
+                        "409",
+                        "User is already linked to another employee.");
                 }
 
-                var department = await db.Departments
-                    .FirstOrDefaultAsync(x =>
-                        x.DepartmentId ==
-                        updateEmployeeDto.DepartmentId);
+                Department department =
+                    await db.Departments
+                        .FirstOrDefaultAsync(x =>
+                            x.DepartmentId ==
+                            updateEmployeeDto.DepartmentId &&
+                            x.IsActive ==
+                            (byte)IsActive.Active);
 
                 if (department == null)
                 {
                     return ApiResponseHelper.Failure<EmployeeDto>(
                         "Department not found.",
-                        "DEPARTMENT_NOT_FOUND",
-                        $"Department with ID {updateEmployeeDto.DepartmentId} does not exist.");
+                        "404",
+                        "Invalid Department Id.");
                 }
 
-                var designationExists = await db.Roles
+                bool designationExists = await db.Roles
                     .AnyAsync(x =>
-                        x.RoleId == updateEmployeeDto.Designation);
+                        x.RoleId ==
+                        updateEmployeeDto.Designation &&
+                        x.IsActive ==
+                        (byte)IsActive.Active);
 
                 if (!designationExists)
                 {
                     return ApiResponseHelper.Failure<EmployeeDto>(
-                        "Designation role not found.",
-                        "DESIGNATION_NOT_FOUND",
-                        $"Role with ID {updateEmployeeDto.Designation} does not exist.");
+                        "Designation not found.",
+                        "404",
+                        "Invalid Designation Role Id.");
                 }
 
-                var companyExists = await db.Companies
+                bool companyExists = await db.Companies
                     .AnyAsync(x =>
-                        x.CompanyId == updateEmployeeDto.CompanyId);
+                        x.CompanyId ==
+                        updateEmployeeDto.CompanyId &&
+                        x.IsActive ==
+                        (byte)IsActive.Active);
 
                 if (!companyExists)
                 {
                     return ApiResponseHelper.Failure<EmployeeDto>(
                         "Company not found.",
-                        "COMPANY_NOT_FOUND",
-                        $"Company with ID {updateEmployeeDto.CompanyId} does not exist.");
+                        "404",
+                        "Invalid Company Id.");
                 }
 
-                if (department.CompanyId != updateEmployeeDto.CompanyId)
+                if (department.CompanyId !=
+                    updateEmployeeDto.CompanyId)
                 {
                     return ApiResponseHelper.Failure<EmployeeDto>(
                         "Department does not belong to the selected company.",
-                        "DEPARTMENT_COMPANY_MISMATCH",
-                        $"Department with ID {updateEmployeeDto.DepartmentId} does not belong to company with ID {updateEmployeeDto.CompanyId}.");
+                        "409",
+                        "Department and Company do not match.");
                 }
 
                 if (updateEmployeeDto.ReportingManager.HasValue &&
@@ -366,23 +465,26 @@ namespace Fincore.Infrastructure.Services.MasterTable
                 {
                     return ApiResponseHelper.Failure<EmployeeDto>(
                         "Employee cannot be their own reporting manager.",
-                        "INVALID_REPORTING_MANAGER",
-                        $"Employee with ID {id} cannot report to themselves.");
+                        "409",
+                        "Invalid Reporting Manager Id.");
                 }
 
                 if (updateEmployeeDto.ReportingManager.HasValue)
                 {
-                    var reportingManager = await db.Employees
-                        .FirstOrDefaultAsync(x =>
-                            x.EmployeeId ==
-                            updateEmployeeDto.ReportingManager.Value);
+                    Employee reportingManager =
+                        await db.Employees
+                            .FirstOrDefaultAsync(x =>
+                                x.EmployeeId ==
+                                updateEmployeeDto.ReportingManager.Value &&
+                                x.IsActive ==
+                                (byte)IsActive.Active);
 
                     if (reportingManager == null)
                     {
                         return ApiResponseHelper.Failure<EmployeeDto>(
                             "Reporting manager not found.",
-                            "REPORTING_MANAGER_NOT_FOUND",
-                            $"Employee with ID {updateEmployeeDto.ReportingManager.Value} does not exist.");
+                            "404",
+                            "Invalid Reporting Manager Id.");
                     }
 
                     if (reportingManager.CompanyId !=
@@ -390,8 +492,8 @@ namespace Fincore.Infrastructure.Services.MasterTable
                     {
                         return ApiResponseHelper.Failure<EmployeeDto>(
                             "Reporting manager belongs to another company.",
-                            "REPORTING_MANAGER_COMPANY_MISMATCH",
-                            "Reporting manager must belong to the same company as the employee.");
+                            "409",
+                            "Reporting manager must belong to the same company.");
                     }
                 }
 
@@ -420,27 +522,35 @@ namespace Fincore.Infrastructure.Services.MasterTable
                     updateEmployeeDto.PAN;
 
                 employee.IsActive =
-                    updateEmployeeDto.IsActive;
-
+                    (byte)IsActive.Active;
 
                 await db.SaveChangesAsync();
 
-                var updatedEmployee = await db.Employees
-                    .Include(x => x.User)
-                    .Include(x => x.Department)
-                    .Include(x => x.DesignationRole)
-                    .Include(x => x.Company)
-                    .Include(x => x.ReportingManagerEmployee)
-                        .ThenInclude(x => x.User)
-                    .FirstOrDefaultAsync(
-                        x => x.EmployeeId == id);
+                employeeCacheVersion++;
 
-                var result =
+                Employee updatedEmployee =
+                    await GetEmployeeQuery()
+                        .FirstOrDefaultAsync(x =>
+                            x.EmployeeId == id);
+
+                EmployeeDto employeeDto =
                     mapper.Map<EmployeeDto>(updatedEmployee);
 
-                return ApiResponseHelper.SuccessRes(
-                    result,
-                    "Employee updated successfully.");
+                ApiResponse<EmployeeDto> response =
+                    ApiResponseHelper.SuccessRes(
+                        employeeDto,
+                        "Employee updated successfully.");
+
+                string cacheKey = $"employee_{id}";
+
+                cache.Remove(cacheKey);
+
+                cache.Set(
+                    cacheKey,
+                    response,
+                    TimeSpan.FromMinutes(5));
+
+                return response;
             }
             catch (Exception ex)
             {
@@ -451,45 +561,51 @@ namespace Fincore.Infrastructure.Services.MasterTable
             }
         }
 
-        public async Task<ApiResponse<bool>> DeleteEmployeeAsync(int id)
+        public async Task<ApiResponse<string>> DeleteEmployeeAsync(
+            int id)
         {
             try
             {
-                var employee = await db.Employees
+                Employee employee = await db.Employees
                     .FirstOrDefaultAsync(x =>
                         x.EmployeeId == id);
 
                 if (employee == null)
                 {
-                    return ApiResponseHelper.Failure<bool>(
+                    return ApiResponseHelper.Failure<string>(
                         "Employee not found.",
-                        "EMPLOYEE_NOT_FOUND",
-                        $"Employee with ID {id} does not exist.");
+                        "404",
+                        "Invalid Employee Id.");
                 }
 
-                var hasSubordinates = await db.Employees
-                    .AnyAsync(x =>
-                        x.ReportingManager == id);
-
-                if (hasSubordinates)
+                if (employee.IsActive ==
+                    (byte)IsActive.Inactive)
                 {
-                    return ApiResponseHelper.Failure<bool>(
-                        "Employee cannot be deleted.",
-                        "EMPLOYEE_HAS_SUBORDINATES",
-                        "This employee is currently assigned as a reporting manager.");
+                    return ApiResponseHelper.Failure<string>(
+                        "Employee already deleted.",
+                        "409",
+                        "Employee is already inactive.");
                 }
 
-                db.Employees.Remove(employee);
+                employee.IsActive =
+                    (byte)IsActive.Inactive;
 
                 await db.SaveChangesAsync();
 
+                employeeCacheVersion++;
+
+                string cacheKey =
+                    $"employee_{id}";
+
+                cache.Remove(cacheKey);
+
                 return ApiResponseHelper.SuccessRes(
-                    true,
+                    "Deleted",
                     "Employee deleted successfully.");
             }
             catch (Exception ex)
             {
-                return ApiResponseHelper.Failure<bool>(
+                return ApiResponseHelper.Failure<string>(
                     "Failed to delete employee.",
                     "EMPLOYEE_DELETE_ERROR",
                     ex.Message);

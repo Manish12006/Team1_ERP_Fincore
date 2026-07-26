@@ -5,7 +5,7 @@ namespace Fincore.Application.Interfaces.IMasterTable
 {
     public interface IVendorCategoryService
     {
-        Task<ApiResponse<List<VendorCategoryDto>>> GetAllVendorCategoriesAsync(int pageNumber,int pageSize);
+        Task<ApiResponse<List<VendorCategoryDto>>> GetAllVendorCategoriesAsync(int pageNumber,int pageSize, string? search);
 
         Task<ApiResponse<VendorCategoryDto>> GetVendorCategoryByIdAsync(int id);
 
@@ -13,6 +13,6 @@ namespace Fincore.Application.Interfaces.IMasterTable
 
         Task<ApiResponse<VendorCategoryDto>> UpdateVendorCategoryAsync(int id, UpdateVendorCategoryDto updateVendorCategoryDto);
 
-        Task<ApiResponse<bool>> DeleteVendorCategoryAsync(int id);
+        Task<ApiResponse<string>> DeleteVendorCategoryAsync(int id);
     }
 }

@@ -5,7 +5,7 @@ namespace Fincore.Application.Interfaces.IMasterTable
 {
     public interface IUserService
     {
-        Task<ApiResponse<List<UserDto>>> GetAllUsersAsync(int pageNumber,int pageSize);
+        Task<ApiResponse<List<UserDto>>> GetAllUsersAsync(int pageNumber,int pageSize, string? search);
 
         Task<ApiResponse<UserDto>> GetUserByIdAsync(int id);
 

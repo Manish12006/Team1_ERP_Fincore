@@ -22,10 +22,11 @@ namespace Fincore.API.Controllers.MasterTable
         [HttpGet]
         public async Task<IActionResult> GetAllDepartments(
             int pageNumber = 1,
-            int pageSize = 10)
+            int pageSize = 10,
+            string? search = null)
         {
             var response = await departmentService
-                .GetAllDepartmentsAsync(pageNumber, pageSize);
+                .GetAllDepartmentsAsync(pageNumber, pageSize,search);
 
             if (!response.success)
                 return BadRequest(response);
