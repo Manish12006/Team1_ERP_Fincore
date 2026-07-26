@@ -5,7 +5,7 @@ namespace Fincore.Application.Interfaces.IMasterTable
 {
     public interface ICustomerService
     {
-        Task<ApiResponse<List<CustomerDto>>> GetAllCustomersAsync(int pageNumber,int pageSize);
+        Task<ApiResponse<List<CustomerDto>>> GetAllCustomersAsync(int pageNumber,int pageSize, string? search);
 
         Task<ApiResponse<CustomerDto>> GetCustomerByIdAsync(int id);
 

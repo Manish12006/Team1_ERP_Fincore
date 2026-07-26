@@ -2,10 +2,12 @@
 using Fincore.Application.DTO;
 using Fincore.Application.DTO.MasterTable;
 using Fincore.Application.Interfaces.IMasterTable;
+using Fincore.Domain.Enums;
 using Fincore.Domain.Models;
 using Fincore.Infrastructure.CommonHelper;
 using Fincore.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace Fincore.Infrastructure.Services.MasterTable
 {
@@ -13,53 +15,108 @@ namespace Fincore.Infrastructure.Services.MasterTable
     {
         private readonly AppDbContext db;
         private readonly IMapper mapper;
+        private readonly IMemoryCache cache;
+
+        private static int customerCacheVersion = 1;
 
         public CustomerService(
             AppDbContext db,
-            IMapper mapper)
+            IMapper mapper,
+            IMemoryCache cache)
         {
             this.db = db;
             this.mapper = mapper;
+            this.cache = cache;
+        }
+
+        private IQueryable<Customer> GetCustomerQuery()
+        {
+            return db.Customers
+                .Where(x => x.IsActive == (byte)IsActive.Active)
+                .Include(x => x.User)
+                .Include(x => x.Company);
         }
 
         public async Task<ApiResponse<List<CustomerDto>>> GetAllCustomersAsync(
             int pageNumber,
-            int pageSize)
+            int pageSize,
+            string? search)
         {
             try
             {
                 if (pageNumber <= 0)
+                {
                     pageNumber = 1;
+                }
 
                 if (pageSize <= 0)
+                {
                     pageSize = 10;
+                }
 
-                var totalRecords = await db.Customers.CountAsync();
+                if (!string.IsNullOrEmpty(search))
+                {
+                    search = search.Trim();
+                }
 
-                var customers = await db.Customers
-                    .Include(x => x.User)
-                    .Include(x => x.Company)
+                string cacheKey =
+                    $"customers_{customerCacheVersion}_page_{pageNumber}_size_{pageSize}_search_{search}";
+
+                if (cache.TryGetValue(
+                    cacheKey,
+                    out ApiResponse<List<CustomerDto>> cachedData))
+                {
+                    Console.WriteLine(
+                        "GET ALL CUSTOMERS - Data returned from CACHE");
+
+                    return cachedData;
+                }
+
+                Console.WriteLine(
+                    "GET ALL CUSTOMERS - Data returned from DATABASE");
+
+                IQueryable<Customer> query = GetCustomerQuery();
+
+                if (!string.IsNullOrEmpty(search))
+                {
+                    query = query.Where(x =>
+                        x.CustomerCode.Contains(search) ||
+                        x.User.FullName.Contains(search) ||
+                        x.Company.CompanyName.Contains(search));
+                }
+
+                int totalRecords = await query.CountAsync();
+
+                List<Customer> customers = await query
                     .OrderBy(x => x.CustomerId)
                     .Skip((pageNumber - 1) * pageSize)
                     .Take(pageSize)
                     .ToListAsync();
 
-                var customerDtos =
+                List<CustomerDto> customerDtos =
                     mapper.Map<List<CustomerDto>>(customers);
 
                 var metadata = new
                 {
-                    pageNumber,
-                    pageSize,
-                    totalPages = (int)Math.Ceiling(
-                        totalRecords / (double)pageSize)
+                    CurrentPage = pageNumber,
+                    PageSize = pageSize,
+                    TotalPages = (int)Math.Ceiling(
+                        (double)totalRecords / pageSize)
                 };
 
-                return ApiResponseHelper.SuccessRes(
-                    customerDtos,
-                    "Customers retrieved successfully.",
-                    totalRecords,
-                    metadata);
+                ApiResponse<List<CustomerDto>> response =
+                    ApiResponseHelper.SuccessRes(
+                        customerDtos,
+                        "Customers fetched successfully.",
+                        totalRecords,
+                        metadata);
+
+                cache.Set(
+                    cacheKey,
+                    response,
+                    TimeSpan.FromMinutes(5));
+
+                return response;
             }
             catch (Exception ex)
             {
@@ -75,9 +132,22 @@ namespace Fincore.Infrastructure.Services.MasterTable
         {
             try
             {
-                var customer = await db.Customers
-                    .Include(x => x.User)
-                    .Include(x => x.Company)
+                string cacheKey = $"customer_{id}";
+
+                if (cache.TryGetValue(
+                    cacheKey,
+                    out ApiResponse<CustomerDto> cachedData))
+                {
+                    Console.WriteLine(
+                        "GET CUSTOMER BY ID - Data returned from CACHE");
+
+                    return cachedData;
+                }
+
+                Console.WriteLine(
+                    "GET CUSTOMER BY ID - Data returned from DATABASE");
+
+                Customer customer = await GetCustomerQuery()
                     .FirstOrDefaultAsync(x => x.CustomerId == id);
 
                 if (customer == null)
@@ -88,12 +158,20 @@ namespace Fincore.Infrastructure.Services.MasterTable
                         $"Customer with ID {id} does not exist.");
                 }
 
-                var customerDto =
+                CustomerDto customerDto =
                     mapper.Map<CustomerDto>(customer);
 
-                return ApiResponseHelper.SuccessRes(
-                    customerDto,
-                    "Customer retrieved successfully.");
+                ApiResponse<CustomerDto> response =
+                    ApiResponseHelper.SuccessRes(
+                        customerDto,
+                        "Customer fetched successfully.");
+
+                cache.Set(
+                    cacheKey,
+                    response,
+                    TimeSpan.FromMinutes(5));
+
+                return response;
             }
             catch (Exception ex)
             {
@@ -109,7 +187,7 @@ namespace Fincore.Infrastructure.Services.MasterTable
         {
             try
             {
-                var userExists = await db.Users
+                bool userExists = await db.Users
                     .AnyAsync(x =>
                         x.UserId == createCustomerDto.UserId);
 
@@ -121,19 +199,20 @@ namespace Fincore.Infrastructure.Services.MasterTable
                         $"User with ID {createCustomerDto.UserId} does not exist.");
                 }
 
-                var companyExists = await db.Companies
+                bool companyExists = await db.Companies
                     .AnyAsync(x =>
-                        x.CompanyId == createCustomerDto.CompanyId);
+                        x.CompanyId == createCustomerDto.CompanyId &&
+                        x.IsActive == (byte)IsActive.Active);
 
                 if (!companyExists)
                 {
                     return ApiResponseHelper.Failure<CustomerDto>(
                         "Company not found.",
                         "COMPANY_NOT_FOUND",
-                        $"Company with ID {createCustomerDto.CompanyId} does not exist.");
+                        $"Active company with ID {createCustomerDto.CompanyId} does not exist.");
                 }
 
-                var customerCodeExists = await db.Customers
+                bool customerCodeExists = await db.Customers
                     .AnyAsync(x =>
                         x.CustomerCode == createCustomerDto.CustomerCode);
 
@@ -145,28 +224,38 @@ namespace Fincore.Infrastructure.Services.MasterTable
                         $"Customer with code {createCustomerDto.CustomerCode} already exists.");
                 }
 
-
-                var customer =
+                Customer customer =
                     mapper.Map<Customer>(createCustomerDto);
 
                 customer.CustomerId = 0;
+                customer.IsActive = (byte)IsActive.Active;
 
                 await db.Customers.AddAsync(customer);
                 await db.SaveChangesAsync();
 
+                customerCacheVersion++;
 
-                var createdCustomer = await db.Customers
-                    .Include(x => x.User)
-                    .Include(x => x.Company)
+                Customer createdCustomer = await GetCustomerQuery()
                     .FirstOrDefaultAsync(
                         x => x.CustomerId == customer.CustomerId);
 
-                var result =
+                CustomerDto result =
                     mapper.Map<CustomerDto>(createdCustomer);
 
-                return ApiResponseHelper.SuccessRes(
-                    result,
-                    "Customer created successfully.");
+                ApiResponse<CustomerDto> response =
+                    ApiResponseHelper.SuccessRes(
+                        result,
+                        "Customer created successfully.");
+
+                string cacheKey =
+                    $"customer_{customer.CustomerId}";
+
+                cache.Set(
+                    cacheKey,
+                    response,
+                    TimeSpan.FromMinutes(5));
+
+                return response;
             }
             catch (Exception ex)
             {
@@ -183,7 +272,7 @@ namespace Fincore.Infrastructure.Services.MasterTable
         {
             try
             {
-                var customer = await db.Customers
+                Customer customer = await GetCustomerQuery()
                     .FirstOrDefaultAsync(
                         x => x.CustomerId == id);
 
@@ -192,10 +281,10 @@ namespace Fincore.Infrastructure.Services.MasterTable
                     return ApiResponseHelper.Failure<CustomerDto>(
                         "Customer not found.",
                         "CUSTOMER_NOT_FOUND",
-                        $"Customer with ID {id} does not exist.");
+                        $"Active customer with ID {id} does not exist.");
                 }
 
-                var userExists = await db.Users
+                bool userExists = await db.Users
                     .AnyAsync(x =>
                         x.UserId == updateCustomerDto.UserId);
 
@@ -207,19 +296,20 @@ namespace Fincore.Infrastructure.Services.MasterTable
                         $"User with ID {updateCustomerDto.UserId} does not exist.");
                 }
 
-                var companyExists = await db.Companies
+                bool companyExists = await db.Companies
                     .AnyAsync(x =>
-                        x.CompanyId == updateCustomerDto.CompanyId);
+                        x.CompanyId == updateCustomerDto.CompanyId &&
+                        x.IsActive == (byte)IsActive.Active);
 
                 if (!companyExists)
                 {
                     return ApiResponseHelper.Failure<CustomerDto>(
                         "Company not found.",
                         "COMPANY_NOT_FOUND",
-                        $"Company with ID {updateCustomerDto.CompanyId} does not exist.");
+                        $"Active company with ID {updateCustomerDto.CompanyId} does not exist.");
                 }
 
-                var customerCodeExists = await db.Customers
+                bool customerCodeExists = await db.Customers
                     .AnyAsync(x =>
                         x.CustomerCode == updateCustomerDto.CustomerCode &&
                         x.CustomerId != id);
@@ -232,7 +322,6 @@ namespace Fincore.Infrastructure.Services.MasterTable
                         $"Customer with code {updateCustomerDto.CustomerCode} already exists.");
                 }
 
-
                 customer.CustomerCode =
                     updateCustomerDto.CustomerCode;
 
@@ -243,24 +332,34 @@ namespace Fincore.Infrastructure.Services.MasterTable
                     updateCustomerDto.CompanyId;
 
                 customer.IsActive =
-                    updateCustomerDto.IsActive;
-
+                    (byte)IsActive.Active;
 
                 await db.SaveChangesAsync();
 
+                customerCacheVersion++;
 
-                var updatedCustomer = await db.Customers
-                    .Include(x => x.User)
-                    .Include(x => x.Company)
+                Customer updatedCustomer = await GetCustomerQuery()
                     .FirstOrDefaultAsync(
                         x => x.CustomerId == id);
 
-                var result =
+                CustomerDto result =
                     mapper.Map<CustomerDto>(updatedCustomer);
 
-                return ApiResponseHelper.SuccessRes(
-                    result,
-                    "Customer updated successfully.");
+                ApiResponse<CustomerDto> response =
+                    ApiResponseHelper.SuccessRes(
+                        result,
+                        "Customer updated successfully.");
+
+                string cacheKey = $"customer_{id}";
+
+                cache.Remove(cacheKey);
+
+                cache.Set(
+                    cacheKey,
+                    response,
+                    TimeSpan.FromMinutes(5));
+
+                return response;
             }
             catch (Exception ex)
             {
@@ -275,7 +374,7 @@ namespace Fincore.Infrastructure.Services.MasterTable
         {
             try
             {
-                var customer = await db.Customers
+                Customer customer = await db.Customers
                     .FirstOrDefaultAsync(
                         x => x.CustomerId == id);
 
@@ -287,9 +386,26 @@ namespace Fincore.Infrastructure.Services.MasterTable
                         $"Customer with ID {id} does not exist.");
                 }
 
-                db.Customers.Remove(customer);
+                if (customer.IsActive ==
+                    (byte)IsActive.Inactive)
+                {
+                    return ApiResponseHelper.Failure<bool>(
+                        "Customer already deleted.",
+                        "CUSTOMER_ALREADY_DELETED",
+                        "Customer is already inactive.");
+                }
+
+                customer.IsActive =
+                    (byte)IsActive.Inactive;
 
                 await db.SaveChangesAsync();
+
+                customerCacheVersion++;
+
+                string cacheKey =
+                    $"customer_{id}";
+
+                cache.Remove(cacheKey);
 
                 return ApiResponseHelper.SuccessRes(
                     true,
