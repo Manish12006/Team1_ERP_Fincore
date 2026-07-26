@@ -1,5 +1,4 @@
 ﻿using Fincore.Application.Interfaces;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Fincore.API.Controllers
@@ -15,15 +14,30 @@ namespace Fincore.API.Controllers
             this.service = service;
         }
 
-        
+        // Get General Ledger
         [HttpGet]
-        public async Task<IActionResult> GetAll(int page = 1, int pageSize = 10)
+        public async Task<IActionResult> GetAll(
+            string? journalNumber,
+            int? accountId,
+            DateTime? fromDate,
+            DateTime? toDate,
+            string? description,
+            int page = 1,
+            int pageSize = 10)
         {
-            var result = await service.GetAllAsync(page, pageSize);
+            var result = await service.GetAllAsync(
+                journalNumber,
+                accountId,
+                fromDate,
+                toDate,
+                description,
+                page,
+                pageSize);
+
             return Ok(result);
         }
 
-        
+        // Get General Ledger By Id
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(int id)
         {
@@ -31,7 +45,7 @@ namespace Fincore.API.Controllers
             return Ok(result);
         }
 
-        
+        // General Ledger Summary
         [HttpGet("summary")]
         public async Task<IActionResult> GetSummary()
         {
@@ -39,6 +53,7 @@ namespace Fincore.API.Controllers
             return Ok(result);
         }
 
+        // Trial Balance
         [HttpGet("trial-balance")]
         public async Task<IActionResult> GetTrialBalance()
         {
@@ -46,6 +61,7 @@ namespace Fincore.API.Controllers
             return Ok(result);
         }
 
+        // Trial Balance Summary
         [HttpGet("trial-balance/summary")]
         public async Task<IActionResult> GetTrialBalanceSummary()
         {
@@ -53,18 +69,40 @@ namespace Fincore.API.Controllers
             return Ok(result);
         }
 
+        // Ledger Account
         [HttpGet("accounts/{accountId}")]
-        public async Task<IActionResult> GetLedgerAccount( int accountId,int page = 1,int pageSize = 10)
+        public async Task<IActionResult> GetLedgerAccount(
+            int accountId,
+            DateTime? fromDate,
+            DateTime? toDate,
+            int page = 1,
+            int pageSize = 10)
         {
-            var result = await service.GetLedgerAccountAsync(accountId,page,pageSize);
+            var result = await service.GetLedgerAccountAsync(
+                accountId,
+                fromDate,
+                toDate,
+                page,
+                pageSize);
 
             return Ok(result);
         }
 
+        // Accounting Report
         [HttpGet("accounting-reports")]
-        public async Task<IActionResult> GetAccountingReport( DateTime? fromDate, DateTime? toDate,int? accountId, int page = 1,int pageSize = 10)
+        public async Task<IActionResult> GetAccountingReport(
+            DateTime? fromDate,
+            DateTime? toDate,
+            int? accountId,
+            int page = 1,
+            int pageSize = 10)
         {
-            var result = await service.GetAccountingReportAsync(fromDate,toDate, accountId, page,pageSize);
+            var result = await service.GetAccountingReportAsync(
+                fromDate,
+                toDate,
+                accountId,
+                page,
+                pageSize);
 
             return Ok(result);
         }
