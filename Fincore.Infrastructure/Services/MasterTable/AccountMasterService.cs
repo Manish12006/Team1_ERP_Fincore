@@ -82,6 +82,14 @@ namespace Fincore.Infrastructure.Services.MasterTable
                     $"No account found with Id {id}."
                 );
             }
+            if(data.IsActive==0)
+            {
+                return ApiResponseHelper.Failure<bool>(
+                    "Account already deleted.",
+                    "ACCOUNT_already_FOUND",
+                    $"Account already deleted with Id {id}."
+                );
+            }
 
             data.IsActive = 0;
 
