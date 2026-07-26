@@ -2,10 +2,12 @@
 using Fincore.Application.DTO;
 using Fincore.Application.DTO.MasterTable;
 using Fincore.Application.Interfaces.IMasterTable;
+using Fincore.Domain.Enums;
 using Fincore.Domain.Models;
 using Fincore.Infrastructure.CommonHelper;
 using Fincore.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace Fincore.Infrastructure.Services.MasterTable
 {
@@ -13,54 +15,110 @@ namespace Fincore.Infrastructure.Services.MasterTable
     {
         private readonly AppDbContext db;
         private readonly IMapper mapper;
+        private readonly IMemoryCache cache;
+        private static int vendorCategoryCacheVersion = 1;
 
         public VendorCategoryService(
             AppDbContext db,
-            IMapper mapper)
+            IMapper mapper,
+            IMemoryCache cache)
         {
             this.db = db;
             this.mapper = mapper;
+            this.cache = cache;
+        }
+
+        private IQueryable<VendorCategory> GetVendorCategoryQuery()
+        {
+            return db.VendorCategories
+                .Where(x => x.IsActive == (byte)IsActive.Active)
+                .Include(x => x.CreatedByUser)
+                .Include(x => x.ModifiedByUser);
         }
 
         public async Task<ApiResponse<List<VendorCategoryDto>>> GetAllVendorCategoriesAsync(
             int pageNumber,
-            int pageSize)
+            int pageSize,
+            string? search)
         {
             try
             {
                 if (pageNumber <= 0)
+                {
                     pageNumber = 1;
+                }
 
                 if (pageSize <= 0)
+                {
                     pageSize = 10;
+                }
 
-                var totalRecords =
-                    await db.VendorCategories.CountAsync();
+                if (!string.IsNullOrEmpty(search))
+                {
+                    search = search.Trim();
+                }
 
-                var vendorCategories = await db.VendorCategories
-                    .Include(x => x.CreatedByUser)
-                    .Include(x => x.ModifiedByUser)
-                    .OrderBy(x => x.VendorCategoryId)
-                    .Skip((pageNumber - 1) * pageSize)
-                    .Take(pageSize)
-                    .ToListAsync();
+                string cacheKey =
+                    $"vendorCategories_{vendorCategoryCacheVersion}_page_{pageNumber}_size_{pageSize}_search_{search}";
 
-                var vendorCategoryDtos =
-                    mapper.Map<List<VendorCategoryDto>>(vendorCategories);
+                if (cache.TryGetValue(
+                    cacheKey,
+                    out ApiResponse<List<VendorCategoryDto>> cachedData))
+                {
+                    Console.WriteLine(
+                        "GET ALL VENDOR CATEGORIES - Data returned from CACHE");
+
+                    return cachedData;
+                }
+
+                Console.WriteLine(
+                    "GET ALL VENDOR CATEGORIES - Data returned from DATABASE");
+
+                IQueryable<VendorCategory> query =
+                    GetVendorCategoryQuery();
+
+                if (!string.IsNullOrEmpty(search))
+                {
+                    query = query.Where(x =>
+                        x.CategoryName.Contains(search) ||
+                        (x.Description != null &&
+                         x.Description.Contains(search)));
+                }
+
+                int totalRecords = await query.CountAsync();
+
+                List<VendorCategory> vendorCategories =
+                    await query
+                        .OrderBy(x => x.VendorCategoryId)
+                        .Skip((pageNumber - 1) * pageSize)
+                        .Take(pageSize)
+                        .ToListAsync();
+
+                List<VendorCategoryDto> vendorCategoryDtos =
+                    mapper.Map<List<VendorCategoryDto>>(
+                        vendorCategories);
 
                 var metadata = new
                 {
-                    pageNumber,
-                    pageSize,
-                    totalPages = (int)Math.Ceiling(
-                        totalRecords / (double)pageSize)
+                    CurrentPage = pageNumber,
+                    PageSize = pageSize,
+                    TotalPages = (int)Math.Ceiling(
+                        (double)totalRecords / pageSize)
                 };
 
-                return ApiResponseHelper.SuccessRes(
-                    vendorCategoryDtos,
-                    "Vendor categories retrieved successfully.",
-                    totalRecords,
-                    metadata);
+                ApiResponse<List<VendorCategoryDto>> response =
+                    ApiResponseHelper.SuccessRes(
+                        vendorCategoryDtos,
+                        "Vendor categories retrieved successfully.",
+                        totalRecords,
+                        metadata);
+
+                cache.Set(
+                    cacheKey,
+                    response,
+                    TimeSpan.FromMinutes(5));
+
+                return response;
             }
             catch (Exception ex)
             {
@@ -76,11 +134,25 @@ namespace Fincore.Infrastructure.Services.MasterTable
         {
             try
             {
-                var vendorCategory = await db.VendorCategories
-                    .Include(x => x.CreatedByUser)
-                    .Include(x => x.ModifiedByUser)
-                    .FirstOrDefaultAsync(
-                        x => x.VendorCategoryId == id);
+                string cacheKey = $"vendorCategory_{id}";
+
+                if (cache.TryGetValue(
+                    cacheKey,
+                    out ApiResponse<VendorCategoryDto> cachedData))
+                {
+                    Console.WriteLine(
+                        "GET VENDOR CATEGORY BY ID - Data returned from CACHE");
+
+                    return cachedData;
+                }
+
+                Console.WriteLine(
+                    "GET VENDOR CATEGORY BY ID - Data returned from DATABASE");
+
+                VendorCategory vendorCategory =
+                    await GetVendorCategoryQuery()
+                        .FirstOrDefaultAsync(
+                            x => x.VendorCategoryId == id);
 
                 if (vendorCategory == null)
                 {
@@ -90,12 +162,21 @@ namespace Fincore.Infrastructure.Services.MasterTable
                         $"Vendor category with ID {id} does not exist.");
                 }
 
-                var vendorCategoryDto =
-                    mapper.Map<VendorCategoryDto>(vendorCategory);
+                VendorCategoryDto vendorCategoryDto =
+                    mapper.Map<VendorCategoryDto>(
+                        vendorCategory);
 
-                return ApiResponseHelper.SuccessRes(
-                    vendorCategoryDto,
-                    "Vendor category retrieved successfully.");
+                ApiResponse<VendorCategoryDto> response =
+                    ApiResponseHelper.SuccessRes(
+                        vendorCategoryDto,
+                        "Vendor category retrieved successfully.");
+
+                cache.Set(
+                    cacheKey,
+                    response,
+                    TimeSpan.FromMinutes(5));
+
+                return response;
             }
             catch (Exception ex)
             {
@@ -111,25 +192,23 @@ namespace Fincore.Infrastructure.Services.MasterTable
         {
             try
             {
-                var categoryNameExists =
+                VendorCategory existingCategory =
                     await db.VendorCategories
-                        .AnyAsync(x =>
-                            x.CategoryName ==
-                            createVendorCategoryDto.CategoryName);
+                        .FirstOrDefaultAsync(x =>
+                            x.CategoryName.ToLower() ==
+                            createVendorCategoryDto.CategoryName.ToLower());
 
-                if (categoryNameExists)
+                if (existingCategory != null)
                 {
                     return ApiResponseHelper.Failure<VendorCategoryDto>(
-                        "Vendor category name already exists.",
-                        "DUPLICATE_VENDOR_CATEGORY_NAME",
-                        $"Vendor category with name {createVendorCategoryDto.CategoryName} already exists.");
+                        "Vendor category already exists.",
+                        "409",
+                        "Vendor category name already exists.");
                 }
 
-
-                var createdByExists = await db.Users
+                bool createdByExists = await db.Users
                     .AnyAsync(x =>
-                        x.UserId ==
-                        createVendorCategoryDto.CreatedBy);
+                        x.UserId == createVendorCategoryDto.CreatedBy);
 
                 if (!createdByExists)
                 {
@@ -139,37 +218,55 @@ namespace Fincore.Infrastructure.Services.MasterTable
                         $"User with ID {createVendorCategoryDto.CreatedBy} does not exist.");
                 }
 
-
-                var vendorCategory =
-                    mapper.Map<VendorCategory>(createVendorCategoryDto);
+                VendorCategory vendorCategory =
+                    mapper.Map<VendorCategory>(
+                        createVendorCategoryDto);
 
                 vendorCategory.VendorCategoryId = 0;
 
-                vendorCategory.CreatedAt = DateTime.UtcNow;
-                vendorCategory.ModifiedAt = DateTime.UtcNow;
+                vendorCategory.IsActive =
+                    (byte)IsActive.Active;
+
+                vendorCategory.CreatedAt =
+                    DateTime.UtcNow;
+
+                vendorCategory.ModifiedAt =
+                    DateTime.UtcNow;
+
                 vendorCategory.ModifiedBy =
                     createVendorCategoryDto.CreatedBy;
 
+                await db.VendorCategories.AddAsync(
+                    vendorCategory);
 
-                await db.VendorCategories.AddAsync(vendorCategory);
                 await db.SaveChangesAsync();
 
+                vendorCategoryCacheVersion++;
 
-                var createdVendorCategory =
-                    await db.VendorCategories
-                        .Include(x => x.CreatedByUser)
-                        .Include(x => x.ModifiedByUser)
-                        .FirstOrDefaultAsync(
-                            x => x.VendorCategoryId ==
+                VendorCategory createdVendorCategory =
+                    await GetVendorCategoryQuery()
+                        .FirstOrDefaultAsync(x =>
+                            x.VendorCategoryId ==
                             vendorCategory.VendorCategoryId);
 
-                var result =
+                VendorCategoryDto vendorCategoryDto =
                     mapper.Map<VendorCategoryDto>(
                         createdVendorCategory);
 
-                return ApiResponseHelper.SuccessRes(
-                    result,
-                    "Vendor category created successfully.");
+                ApiResponse<VendorCategoryDto> response =
+                    ApiResponseHelper.SuccessRes(
+                        vendorCategoryDto,
+                        "Vendor category created successfully.");
+
+                string cacheKey =
+                    $"vendorCategory_{vendorCategory.VendorCategoryId}";
+
+                cache.Set(
+                    cacheKey,
+                    response,
+                    TimeSpan.FromMinutes(5));
+
+                return response;
             }
             catch (Exception ex)
             {
@@ -180,47 +277,43 @@ namespace Fincore.Infrastructure.Services.MasterTable
             }
         }
 
-
         public async Task<ApiResponse<VendorCategoryDto>> UpdateVendorCategoryAsync(
             int id,
             UpdateVendorCategoryDto updateVendorCategoryDto)
         {
             try
             {
-                var vendorCategory =
-                    await db.VendorCategories
-                        .FirstOrDefaultAsync(
-                            x => x.VendorCategoryId == id);
+                VendorCategory vendorCategory =
+                    await GetVendorCategoryQuery()
+                        .FirstOrDefaultAsync(x =>
+                            x.VendorCategoryId == id);
 
                 if (vendorCategory == null)
                 {
                     return ApiResponseHelper.Failure<VendorCategoryDto>(
                         "Vendor category not found.",
-                        "VENDOR_CATEGORY_NOT_FOUND",
-                        $"Vendor category with ID {id} does not exist.");
+                        "404",
+                        "Invalid Vendor Category Id.");
                 }
 
-
-                var categoryNameExists =
+                VendorCategory existingCategory =
                     await db.VendorCategories
-                        .AnyAsync(x =>
-                            x.CategoryName ==
-                            updateVendorCategoryDto.CategoryName &&
+                        .FirstOrDefaultAsync(x =>
+                            x.CategoryName.ToLower() ==
+                            updateVendorCategoryDto.CategoryName.ToLower() &&
                             x.VendorCategoryId != id);
 
-                if (categoryNameExists)
+                if (existingCategory != null)
                 {
                     return ApiResponseHelper.Failure<VendorCategoryDto>(
-                        "Vendor category name already exists.",
-                        "DUPLICATE_VENDOR_CATEGORY_NAME",
-                        $"Vendor category with name {updateVendorCategoryDto.CategoryName} already exists.");
+                        "Vendor category already exists.",
+                        "409",
+                        "Vendor category name already exists.");
                 }
 
-
-                var modifiedByExists = await db.Users
+                bool modifiedByExists = await db.Users
                     .AnyAsync(x =>
-                        x.UserId ==
-                        updateVendorCategoryDto.ModifiedBy);
+                        x.UserId == updateVendorCategoryDto.ModifiedBy);
 
                 if (!modifiedByExists)
                 {
@@ -230,16 +323,11 @@ namespace Fincore.Infrastructure.Services.MasterTable
                         $"User with ID {updateVendorCategoryDto.ModifiedBy} does not exist.");
                 }
 
-
                 vendorCategory.CategoryName =
                     updateVendorCategoryDto.CategoryName;
 
                 vendorCategory.Description =
                     updateVendorCategoryDto.Description;
-
-                vendorCategory.IsActive =
-                    updateVendorCategoryDto.IsActive;
-
 
                 vendorCategory.ModifiedBy =
                     updateVendorCategoryDto.ModifiedBy;
@@ -247,24 +335,35 @@ namespace Fincore.Infrastructure.Services.MasterTable
                 vendorCategory.ModifiedAt =
                     DateTime.UtcNow;
 
-
                 await db.SaveChangesAsync();
 
+                vendorCategoryCacheVersion++;
 
-                var updatedVendorCategory =
-                    await db.VendorCategories
-                        .Include(x => x.CreatedByUser)
-                        .Include(x => x.ModifiedByUser)
-                        .FirstOrDefaultAsync(
-                            x => x.VendorCategoryId == id);
+                VendorCategory updatedVendorCategory =
+                    await GetVendorCategoryQuery()
+                        .FirstOrDefaultAsync(x =>
+                            x.VendorCategoryId == id);
 
-                var result =
+                VendorCategoryDto vendorCategoryDto =
                     mapper.Map<VendorCategoryDto>(
                         updatedVendorCategory);
 
-                return ApiResponseHelper.SuccessRes(
-                    result,
-                    "Vendor category updated successfully.");
+                ApiResponse<VendorCategoryDto> response =
+                    ApiResponseHelper.SuccessRes(
+                        vendorCategoryDto,
+                        "Vendor category updated successfully.");
+
+                string cacheKey =
+                    $"vendorCategory_{id}";
+
+                cache.Remove(cacheKey);
+
+                cache.Set(
+                    cacheKey,
+                    response,
+                    TimeSpan.FromMinutes(5));
+
+                return response;
             }
             catch (Exception ex)
             {
@@ -275,38 +374,57 @@ namespace Fincore.Infrastructure.Services.MasterTable
             }
         }
 
-
-        public async Task<ApiResponse<bool>> DeleteVendorCategoryAsync(
+        public async Task<ApiResponse<string>> DeleteVendorCategoryAsync(
             int id)
         {
             try
             {
-                var vendorCategory =
+                VendorCategory vendorCategory =
                     await db.VendorCategories
-                        .FirstOrDefaultAsync(
-                            x => x.VendorCategoryId == id);
+                        .FirstOrDefaultAsync(x =>
+                            x.VendorCategoryId == id);
 
                 if (vendorCategory == null)
                 {
-                    return ApiResponseHelper.Failure<bool>(
+                    return ApiResponseHelper.Failure<string>(
                         "Vendor category not found.",
-                        "VENDOR_CATEGORY_NOT_FOUND",
-                        $"Vendor category with ID {id} does not exist.");
+                        "404",
+                        "Invalid Vendor Category Id.");
                 }
 
+                if (vendorCategory.IsActive ==
+                    (byte)IsActive.Inactive)
+                {
+                    return ApiResponseHelper.Failure<string>(
+                        "Vendor category already deleted.",
+                        "409",
+                        "Vendor category is already inactive.");
+                }
 
-                db.VendorCategories.Remove(vendorCategory);
+                vendorCategory.IsActive =
+                    (byte)IsActive.Inactive;
+
+                vendorCategory.ModifiedAt =
+                    DateTime.UtcNow;
+
+                vendorCategory.ModifiedBy = 1;
 
                 await db.SaveChangesAsync();
 
+                vendorCategoryCacheVersion++;
+
+                string cacheKey =
+                    $"vendorCategory_{id}";
+
+                cache.Remove(cacheKey);
 
                 return ApiResponseHelper.SuccessRes(
-                    true,
+                    "Deleted",
                     "Vendor category deleted successfully.");
             }
             catch (Exception ex)
             {
-                return ApiResponseHelper.Failure<bool>(
+                return ApiResponseHelper.Failure<string>(
                     "Failed to delete vendor category.",
                     "VENDOR_CATEGORY_DELETE_ERROR",
                     ex.Message);
