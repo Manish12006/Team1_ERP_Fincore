@@ -7,6 +7,18 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Enums\ApprovalStatus.cs" />
+    <Compile Remove="Enums\IsActive.cs" />
+    <Compile Remove="Enums\ResponseStatus.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="Enums\ApprovalStatus.cs" />
+    <None Include="Enums\IsActive.cs" />
+    <None Include="Enums\ResponseStatus.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="AutoMapper.Extensions.Microsoft.DependencyInjection" Version="12.0.1" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="8.0.28" />
   </ItemGroup>
