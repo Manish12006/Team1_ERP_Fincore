@@ -36,6 +36,21 @@ namespace Fincore.API.Controllers
             int page = 1,
             int pageSize = 5)
         {
+
+            if (page <= 0)
+            {
+                return BadRequest("Page must be greater than 0");
+            }
+
+            if (pageSize <= 0)
+            {
+                return BadRequest("Page Size must be greater than 0");
+            }
+
+            if (pageSize > 50)
+            {
+                return BadRequest("Maximum Page Size is 50");
+            }
             var response = await _budgetService.GetBudgets(
                 budgetCode,
                 budgetName,

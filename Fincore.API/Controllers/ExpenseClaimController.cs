@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.RateLimiting;
 namespace Fincore.API.Controllers
 {
     [ApiController]
-    [Route("api/v1/[action]")]
+    [Route("api/v1/expenseclaim/[action]")]
     [EnableRateLimiting("FixedPolicy")]
     public class ExpenseClaimController : ControllerBase
     {
@@ -22,14 +22,58 @@ namespace Fincore.API.Controllers
         public async Task<IActionResult> AddExpenseClaim(CreateExpenseClaimDTO dto)
         {
             var response = await _expenseClaimService.AddExpenseClaim(dto);
+
+            if (!response.success)
+            {
+                return BadRequest(response);
+            }
+
             return Ok(response);
         }
 
         // Get All
         [HttpGet]
-        public async Task<IActionResult> GetExpenseClaims(int page = 1, int pageSize = 5)
+        public async Task<IActionResult> GetExpenseClaims(
+        string? claimNumber,
+        int? opexRequestId,
+        int? claimBy,
+        string? approvalStatus,
+        int page = 1,
+        int pageSize = 5)
         {
-            var response = await _expenseClaimService.GetExpenseClaims(page, pageSize);
+            // Page Validation
+            if (page <= 0)
+            {
+                return BadRequest(new
+                {
+                    message = "Page number must be greater than 0"
+                });
+            }
+
+            if (pageSize <= 0)
+            {
+                return BadRequest(new
+                {
+                    message = "Page Size must be greater than 0"
+                });
+            }
+
+            if (pageSize > 50)
+            {
+                return BadRequest(new
+                {
+                    message = "Maximum Page Size is 50"
+                });
+            }
+
+            var response = await _expenseClaimService.GetExpenseClaims(
+                claimNumber,
+                opexRequestId,
+                claimBy,
+                approvalStatus,
+                page,
+                pageSize);
+
             return Ok(response);
         }
 
@@ -52,7 +96,9 @@ namespace Fincore.API.Controllers
             var response = await _expenseClaimService.UpdateExpenseClaim(id, dto);
 
             if (!response.success)
-                return NotFound(response);
+            {
+                return BadRequest(response);
+            }
 
             return Ok(response);
         }
@@ -64,7 +110,9 @@ namespace Fincore.API.Controllers
             var response = await _expenseClaimService.DeleteExpenseClaim(id);
 
             if (!response.success)
-                return NotFound(response);
+            {
+                return BadRequest(response);
+            }
 
             return Ok(response);
         }
@@ -76,7 +124,9 @@ namespace Fincore.API.Controllers
             var response = await _expenseClaimService.ApproveExpenseClaim(id, approvedBy);
 
             if (!response.success)
-                return NotFound(response);
+            {
+                return BadRequest(response);
+            }
 
             return Ok(response);
         }
@@ -88,7 +138,9 @@ namespace Fincore.API.Controllers
             var response = await _expenseClaimService.RejectExpenseClaim(id, approvedBy);
 
             if (!response.success)
-                return NotFound(response);
+            {
+                return BadRequest(response);
+            }
 
             return Ok(response);
         }
@@ -99,6 +151,22 @@ namespace Fincore.API.Controllers
         {
             var response = await _expenseClaimService.GetExpenseClaimSummary();
             return Ok(response);
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetOpexRequestDropdown()
+        {
+            var data = await _expenseClaimService.GetOpexRequestDropdown();
+
+            return Ok(data);
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetUserDropdown()
+        {
+            var data = await _expenseClaimService.GetUserDropdown();
+
+            return Ok(data);
         }
     }
 }

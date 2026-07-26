@@ -27,6 +27,36 @@ namespace Fincore.Infrastructure.Services.BudgetLine
         {
             ApiResponse<string> response = new();
 
+            // Budget Validation
+            var budget = await _context.Budgets
+                .FirstOrDefaultAsync(x => x.BudgetId == dto.BudgetId);
+
+            if (budget == null)
+            {
+                response.success = false;
+                response.message = "Budget Not Found";
+                return response;
+            }
+
+            // Budget Category Validation
+            var category = await _context.BudgetCategories
+                .FirstOrDefaultAsync(x => x.BudgetCategoryId == dto.BudgetCategoryId);
+
+            if (category == null)
+            {
+                response.success = false;
+                response.message = "Budget Category Not Found";
+                return response;
+            }
+
+            // Amount Validation
+            if (dto.AllocatedAmount <= 0)
+            {
+                response.success = false;
+                response.message = "Allocated Amount should be greater than zero";
+                return response;
+            }
+
             var entity = _mapper.Map<Fincore.Domain.Models.BudgetLine>(dto);
 
             entity.CreatedAt = DateTime.Now;
@@ -59,7 +89,9 @@ namespace Fincore.Infrastructure.Services.BudgetLine
 
             if (!_cache.TryGetValue(cacheKey, out List<BudgetLineResponseDTO> data))
             {
-                var query = _context.BudgetLines.AsQueryable();
+                var query = _context.BudgetLines
+            .Where(x => x.IsActive == 1)
+            .AsQueryable();
 
                 if (budgetId.HasValue)
                     query = query.Where(x => x.BudgetId == budgetId);
@@ -97,7 +129,7 @@ namespace Fincore.Infrastructure.Services.BudgetLine
             if (!_cache.TryGetValue(cacheKey, out BudgetLineResponseDTO dto))
             {
                 var entity = await _context.BudgetLines
-                    .FirstOrDefaultAsync(x => x.BudgetLineId == id);
+          .FirstOrDefaultAsync(x => x.BudgetLineId == id && x.IsActive == 1);
 
                 if (entity == null)
                 {
@@ -131,6 +163,30 @@ namespace Fincore.Infrastructure.Services.BudgetLine
                 return response;
             }
 
+            var budget = await _context.Budgets
+    .FirstOrDefaultAsync(x => x.BudgetId == dto.BudgetId);
+
+            if (budget == null)
+            {
+                response.success = false;
+                response.message = "Budget Not Found";
+                return response;
+            }
+            var category = await _context.BudgetCategories
+    .FirstOrDefaultAsync(x => x.BudgetCategoryId == dto.BudgetCategoryId);
+
+            if (category == null)
+            {
+                response.success = false;
+                response.message = "Budget Category Not Found";
+                return response;
+            }
+            if (dto.AllocatedAmount <= 0)
+            {
+                response.success = false;
+                response.message = "Allocated Amount should be greater than zero";
+                return response;
+            }
             _mapper.Map(dto, entity);
 
             entity.ModifiedAt = DateTime.Now;
@@ -159,8 +215,8 @@ namespace Fincore.Infrastructure.Services.BudgetLine
                 response.message = "Budget Line Not Found";
                 return response;
             }
-
-            _context.BudgetLines.Remove(entity);
+            entity.IsActive = 0;
+            entity.ModifiedAt = DateTime.Now;
 
             await _context.SaveChangesAsync();
 
@@ -181,13 +237,16 @@ namespace Fincore.Infrastructure.Services.BudgetLine
             BudgetLineSummaryDTO summary = new();
 
             summary.TotalBudgetLines =
-                await _context.BudgetLines.CountAsync();
+      await _context.BudgetLines
+          .CountAsync(x => x.IsActive == 1);
 
             summary.TotalAllocatedAmount =
-                await _context.BudgetLines.SumAsync(x => x.AllocatedAmount);
+     await _context.BudgetLines.SumAsync(x => x.AllocatedAmount);
 
             summary.TotalUtilizedAmount =
-                await _context.BudgetLines.SumAsync(x => x.UtilizedAmount ?? 0);
+                await _context.BudgetLines
+                    .Where(x => x.IsActive == 1)
+                    .SumAsync(x => x.UtilizedAmount ?? 0);
 
             summary.ActiveBudgetLines =
                 await _context.BudgetLines.CountAsync(x => x.IsActive == 1);

@@ -11,5 +11,7 @@ namespace Fincore.Domain.Enums
         Pending,
         Approved,
         Rejected
+        Invited,
+        Responded
     }
 }

@@ -27,13 +27,50 @@ namespace Fincore.Infrastructure.Services.BudgetCategory
         {
             ApiResponse<string> response = new();
 
+            // Department Validation
+            var department = await _context.Departments
+                .FirstOrDefaultAsync(x => x.DepartmentId == dto.DepartmentId);
+
+            if (department == null)
+            {
+                response.success = false;
+                response.message = "Department Not Found";
+                return response;
+            }
+
+            // Category Name Validation
+            if (string.IsNullOrWhiteSpace(dto.CategoryName))
+            {
+                response.success = false;
+                response.message = "Category Name is required";
+                return response;
+            }
+
+            if (dto.CategoryName.Length > 20)
+            {
+                response.success = false;
+                response.message = "Category Name should not exceed 20 characters";
+                return response;
+            }
+
+            // Duplicate Validation
+            var exists = await _context.BudgetCategories
+                .AnyAsync(x => x.CategoryName == dto.CategoryName && x.IsActive == 1);
+
+            if (exists)
+            {
+                response.success = false;
+                response.message = "Budget Category already exists";
+                return response;
+            }
+
             var entity = _mapper.Map<Fincore.Domain.Models.BudgetCategory>(dto);
 
+            entity.IsActive = 1;
             entity.CreatedAt = DateTime.Now;
             entity.ModifiedAt = DateTime.Now;
 
             await _context.BudgetCategories.AddAsync(entity);
-
             await _context.SaveChangesAsync();
 
             _cache.Remove("BudgetCategoryList");
@@ -59,7 +96,9 @@ namespace Fincore.Infrastructure.Services.BudgetCategory
 
             if (!_cache.TryGetValue(cacheKey, out List<BudgetCategoryResponseDTO> data))
             {
-                var query = _context.BudgetCategories.AsQueryable();
+                var query = _context.BudgetCategories
+      .Where(x => x.IsActive == 1)
+      .AsQueryable();
 
                 if (!string.IsNullOrEmpty(categoryName))
                     query = query.Where(x => x.CategoryName.Contains(categoryName));
@@ -97,7 +136,9 @@ namespace Fincore.Infrastructure.Services.BudgetCategory
             if (!_cache.TryGetValue(cacheKey, out BudgetCategoryResponseDTO dto))
             {
                 var entity = await _context.BudgetCategories
-                    .FirstOrDefaultAsync(x => x.BudgetCategoryId == id);
+      .FirstOrDefaultAsync(x =>
+          x.BudgetCategoryId == id &&
+          x.IsActive == 1);
 
                 if (entity == null)
                 {
@@ -120,7 +161,7 @@ namespace Fincore.Infrastructure.Services.BudgetCategory
 
         public async Task<ApiResponse<string>> UpdateBudgetCategory(int id, UpdateBudgetCategoryDTO dto)
         {
-            ApiResponse<string> response = new ApiResponse<string>();
+            ApiResponse<string> response = new();
 
             var entity = await _context.BudgetCategories
                 .FirstOrDefaultAsync(x => x.BudgetCategoryId == id);
@@ -129,6 +170,45 @@ namespace Fincore.Infrastructure.Services.BudgetCategory
             {
                 response.success = false;
                 response.message = "Budget Category Not Found";
+                return response;
+            }
+
+            // Department Validation
+            var department = await _context.Departments
+                .FirstOrDefaultAsync(x => x.DepartmentId == dto.DepartmentId);
+
+            if (department == null)
+            {
+                response.success = false;
+                response.message = "Department Not Found";
+                return response;
+            }
+
+            // Category Name Validation
+            if (string.IsNullOrWhiteSpace(dto.CategoryName))
+            {
+                response.success = false;
+                response.message = "Category Name is required";
+                return response;
+            }
+
+            if (dto.CategoryName.Length > 20)
+            {
+                response.success = false;
+                response.message = "Category Name should not exceed 20 characters";
+                return response;
+            }
+
+            // Duplicate Validation
+            var exists = await _context.BudgetCategories.AnyAsync(x =>
+                x.CategoryName == dto.CategoryName &&
+                x.BudgetCategoryId != id &&
+                x.IsActive == 1);
+
+            if (exists)
+            {
+                response.success = false;
+                response.message = "Budget Category already exists";
                 return response;
             }
 
@@ -149,7 +229,7 @@ namespace Fincore.Infrastructure.Services.BudgetCategory
         }
         public async Task<ApiResponse<string>> DeleteBudgetCategory(int id)
         {
-            ApiResponse<string> response = new ApiResponse<string>();
+            ApiResponse<string> response = new();
 
             var entity = await _context.BudgetCategories
                 .FirstOrDefaultAsync(x => x.BudgetCategoryId == id);
@@ -161,7 +241,8 @@ namespace Fincore.Infrastructure.Services.BudgetCategory
                 return response;
             }
 
-            _context.BudgetCategories.Remove(entity);
+            entity.IsActive = 0;
+            entity.ModifiedAt = DateTime.Now;
 
             await _context.SaveChangesAsync();
 
@@ -182,7 +263,7 @@ namespace Fincore.Infrastructure.Services.BudgetCategory
             BudgetCategorySummaryDTO summary = new BudgetCategorySummaryDTO();
 
             summary.TotalCategories =
-                await _context.BudgetCategories.CountAsync();
+          await _context.BudgetCategories.CountAsync(x => x.IsActive == 1);
 
             summary.ActiveCategories =
                 await _context.BudgetCategories.CountAsync(x => x.IsActive == 1);

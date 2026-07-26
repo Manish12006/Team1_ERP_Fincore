@@ -1,5 +1,4 @@
-﻿
-using Fincore.Application.DTOs.OpexRequest;
+﻿using Fincore.Application.DTOs.OpexRequest;
 using Fincore.Application.Interfaces.Opex;
 using Fincore.API.CommonHelper;
 using Microsoft.AspNetCore.Mvc;
@@ -23,19 +22,71 @@ namespace Fincore.API.Controllers
         [HttpPost]
         public async Task<IActionResult> AddOpexRequest(CreateOpexRequestDTO dto)
         {
-            await _opexService.AddOpexRequest(dto);
+            var result = await _opexService.AddOpexRequest(dto);
 
-            return Ok(new
+            if (result != "Success")
             {
-                message = "Opex Request Added Successfully"
-            });
+                return BadRequest(
+                    ApiResponseHelper.Failure<object>(
+                        "Validation Failed",
+                        "BAD REQUEST",
+                        result));
+            }
+
+            return Ok(
+                ApiResponseHelper.SuccessRes(
+                    result,
+                    "Opex Request Added Successfully",
+                    1));
         }
 
         // Get All
         [HttpGet]
-        public async Task<IActionResult> GetOpexRequests(int page = 1, int pageSize = 5)
+        public async Task<IActionResult> GetOpexRequests(
+    string? title,
+    int? budgetLineId,
+    int? requestedBy,
+    string? approvalStatus,
+    int page = 1,
+    int pageSize = 5)
         {
-            var data = await _opexService.GetOpexRequests(page, pageSize);
+            // Page Validation
+            if (page <= 0)
+            {
+                return BadRequest(
+                    ApiResponseHelper.Failure<object>(
+                        "Invalid Page Number",
+                        "BAD_REQUEST",
+                        "Page number must be greater than 0"));
+            }
+
+            // Page Size Validation
+            if (pageSize <= 0)
+            {
+                return BadRequest(
+                    ApiResponseHelper.Failure<object>(
+                        "Invalid Page Size",
+                        "BAD_REQUEST",
+                        "Page size must be greater than 0"));
+            }
+
+            // Maximum Page Size Validation
+            if (pageSize > 50)
+            {
+                return BadRequest(
+                    ApiResponseHelper.Failure<object>(
+                        "Invalid Page Size",
+                        "BAD_REQUEST",
+                        "Maximum page size allowed is 50"));
+            }
+
+            var data = await _opexService.GetOpexRequests(
+                title,
+                budgetLineId,
+                requestedBy,
+                approvalStatus,
+                page,
+                pageSize);
 
             var response = ApiResponseHelper.SuccessRes(
                 data,
@@ -93,7 +144,7 @@ namespace Fincore.API.Controllers
             });
         }
 
-        // Delete
+        // Soft Delete
         [HttpDelete]
         public async Task<IActionResult> DeleteOpexRequest(int id)
         {
@@ -117,23 +168,26 @@ namespace Fincore.API.Controllers
             });
         }
 
+        // Approve
         [HttpPost]
         public async Task<IActionResult> ApproveOpexRequest(int id, int approvedBy)
         {
             var result = await _opexService.ApproveOpexRequest(id, approvedBy);
 
-            if (result == "Opex Request Not Found")
+            if (result != "Success")
             {
-                return NotFound(ApiResponseHelper.Failure<object>(
-                    "Record Not Found",
-                    "NOT_FOUND",
-                    result));
+                return BadRequest(
+                    ApiResponseHelper.Failure<object>(
+                        "Operation Failed",
+                        "BAD_REQUEST",
+                        result));
             }
 
-            return Ok(ApiResponseHelper.SuccessRes(
-                result,
-                result,
-                1));
+            return Ok(
+                ApiResponseHelper.SuccessRes(
+                    result,
+                    "Opex Request Approved Successfully",
+                    1));
         }
 
         // Reject
@@ -142,19 +196,23 @@ namespace Fincore.API.Controllers
         {
             var result = await _opexService.RejectOpexRequest(id, approvedBy);
 
-            if (result == "Opex Request Not Found")
+            if (result != "Success")
             {
-                return NotFound(ApiResponseHelper.Failure<object>(
-                    "Record Not Found",
-                    "NOT_FOUND",
-                    result));
+                return BadRequest(
+                    ApiResponseHelper.Failure<object>(
+                        "Operation Failed",
+                        "BAD_REQUEST",
+                        result));
             }
 
-            return Ok(ApiResponseHelper.SuccessRes(
-                result,
-                result,
-                1));
+            return Ok(
+                ApiResponseHelper.SuccessRes(
+                    result,
+                    "Opex Request Rejected Successfully",
+                    1));
         }
+
+        // Summary
         [HttpGet]
         public async Task<IActionResult> GetOpexSummary()
         {
@@ -164,6 +222,26 @@ namespace Fincore.API.Controllers
                 summary,
                 "Summary Fetched Successfully",
                 1));
+        }
+        [HttpGet]
+        public async Task<IActionResult> GetBudgetLineDropdown()
+        {
+            var data = await _opexService.GetBudgetLineDropdown();
+
+            return Ok(ApiResponseHelper.SuccessRes(
+                data,
+                "Budget Line Dropdown Fetched Successfully",
+                data.Count));
+        }
+        [HttpGet]
+        public async Task<IActionResult> GetUserDropdown()
+        {
+            var data = await _opexService.GetUserDropdown();
+
+            return Ok(ApiResponseHelper.SuccessRes(
+                data,
+                "User Dropdown Fetched Successfully",
+                data.Count));
         }
     }
 }

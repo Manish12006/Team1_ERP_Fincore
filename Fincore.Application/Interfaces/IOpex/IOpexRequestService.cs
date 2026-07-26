@@ -1,13 +1,20 @@
 ﻿using Fincore.Application.DTO;
 using Fincore.Application.DTOs.OpexRequest;
+using Fincore.Application.DTOs.Common;
 
 namespace Fincore.Application.Interfaces.Opex
 {
     public interface IOpexRequestService
     {
-        Task AddOpexRequest(CreateOpexRequestDTO dto);
+        Task<string> AddOpexRequest(CreateOpexRequestDTO dto);
 
-        Task<List<OpexRequestResponseDTO>> GetOpexRequests(int page, int pageSize);
+        Task<List<OpexRequestResponseDTO>> GetOpexRequests(
+      string? title,
+      int? budgetLineId,
+      int? requestedBy,
+      string? approvalStatus,
+      int page,
+      int pageSize);
 
         Task<OpexRequestResponseDTO?> GetOpexRequestById(int id);
 
@@ -18,6 +25,9 @@ namespace Fincore.Application.Interfaces.Opex
         Task<string> ApproveOpexRequest(int id, int approvedBy);
 
         Task<string> RejectOpexRequest(int id, int approvedBy);
-          Task<OpexSummaryDTO> GetOpexSummary();
+        Task<OpexSummaryDTO> GetOpexSummary();
+        Task<List<OpexDropDownDTO>> GetBudgetLineDropdown();
+
+        Task<List<OpexDropDownDTO>> GetUserDropdown();
     }
 }
