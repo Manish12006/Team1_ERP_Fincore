@@ -5,7 +5,7 @@ namespace Fincore.Application.Interfaces.IMasterTable
 {
     public interface IDepartmentService
     {
-        Task<ApiResponse<IEnumerable<DepartmentDTO>>> GetAllDepartmentsAsync(int pageNumber,int pageSize);
+        Task<ApiResponse<IEnumerable<DepartmentDTO>>> GetAllDepartmentsAsync(int pageNumber,int pageSize, string? search);
 
         Task<ApiResponse<DepartmentDTO>> GetDepartmentByIdAsync(int id);
 
