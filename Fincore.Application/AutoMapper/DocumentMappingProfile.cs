@@ -15,7 +15,12 @@ namespace Fincore.Application.AutoMapper
         public DocumentMappingProfile() 
         {
             CreateMap<Document, DocumentDto>();
-            CreateMap<CreateDocumentDto, Document>();
+
+            CreateMap<CreateDocumentDto, Document>()
+                .ForMember(x => x.FileName, opt => opt.Ignore())
+                .ForMember(x => x.FileType, opt => opt.Ignore())
+                .ForMember(x => x.FilePath, opt => opt.Ignore());
+
             CreateMap<UpdateDocumentDto, Document>();
 
 

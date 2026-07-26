@@ -10,7 +10,7 @@ namespace Fincore.API.Controllers.MasterTable
     [EnableRateLimiting("FixedPolicy")]
     public class DocumentsController : ControllerBase
     {
-        IDocumentService repo;
+        private readonly IDocumentService repo;
 
         public DocumentsController(IDocumentService repo)
         {
@@ -18,11 +18,9 @@ namespace Fincore.API.Controllers.MasterTable
         }
 
         [HttpGet]
-        public async Task<IActionResult> FetchDocuments(int page=1,int pageSize=10)
+        public async Task<IActionResult> FetchDocuments(int page = 1, int pageSize = 10)
         {
-            var data = await repo.GetAll(page,pageSize);
-
-
+            var data = await repo.GetAll(page, pageSize);
             return Ok(data);
         }
 
@@ -31,35 +29,33 @@ namespace Fincore.API.Controllers.MasterTable
         {
             var data = await repo.DocumentGetById(id);
 
-            if (data == null)
+            if (!data.success)
             {
-                return NotFound();
+                return NotFound(data);
             }
 
             return Ok(data);
         }
 
-
         [HttpPost]
-        public async Task<IActionResult> AddDocument(CreateDocumentDto dto)
+        public async Task<IActionResult> AddDocument([FromForm] CreateDocumentDto dto)
         {
             var data = await repo.AddDocument(dto);
 
+            if (!data.success)
+            {
+                return BadRequest(data);
+            }
+
             return Ok(data);
-            
         }
 
         [HttpPut]
-
-        public async Task<IActionResult> UpadateDocument(int id, UpdateDocumentDto dto) 
+        public async Task<IActionResult> UpadateDocument(int id, [FromForm] UpdateDocumentDto dto)
         {
-            var data = await repo.UpdateDocument(id,dto);
+            var data = await repo.UpdateDocument(id, dto);
             return Ok(data);
-
         }
-
-
-        
 
         [HttpDelete]
         public async Task<IActionResult> DeleteDocument(int id)
@@ -73,9 +69,5 @@ namespace Fincore.API.Controllers.MasterTable
 
             return Ok(data);
         }
-
-
     }
-
-
 }

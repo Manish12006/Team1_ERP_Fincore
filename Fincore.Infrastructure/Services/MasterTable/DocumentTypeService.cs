@@ -157,38 +157,40 @@ namespace Fincore.Infrastructure.Services.MasterTable
 
         public async Task<ApiResponse<bool>> DeleteDocumentType(int id)
         {
-            var data = await db.DocumentTypes
-                .FirstOrDefaultAsync(x => x.DocumentTypeId == id);
-
-            if (data == null)
+            try
             {
-                return ApiResponseHelper.Failure<bool>
-                (
-                    "Document Type Not Found",
-                    "404",
-                    "Invalid Document Type Id"
-                );
+                var data = await db.DocumentTypes
+                    .FirstOrDefaultAsync(x => x.DocumentTypeId == id);
+
+                if (data == null)
+                {
+                    return ApiResponseHelper.Failure<bool>(
+                        "Document Type Not Found",
+                        "404",
+                        "Invalid Document Type Id");
+                }
+
+                db.DocumentTypes.Remove(data);
+
+                await db.SaveChangesAsync();
+
+                return ApiResponseHelper.SuccessRes(
+                    true,
+                    "Document Type Deleted Successfully");
             }
-
-            db.DocumentTypes.Remove(data);
-
-            var result = await db.SaveChangesAsync();
-
-            if (result <= 0)
+            catch (DbUpdateException ex)
             {
-                return ApiResponseHelper.Failure<bool>
-                (
-                    "Document Type Not Deleted",
-                    "500",
-                    "Failed to Delete Document Type"
-                );
-            }
+                if (ex.InnerException is Microsoft.Data.SqlClient.SqlException sqlEx &&
+                    sqlEx.Number == 547)
+                {
+                    return ApiResponseHelper.Failure<bool>(
+                        "Document Type Cannot Be Deleted",
+                        "409",
+                        "This Document Type is already used in Documents.");
+                }
 
-            return ApiResponseHelper.SuccessRes
-            (
-                true,
-                "Document Type Deleted Successfully"
-            );
+                throw;
+            }
         }
     }
 
