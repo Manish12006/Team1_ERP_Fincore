@@ -8,7 +8,7 @@ using Fincore.Infrastructure.Data;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
-
+using Fincore.Domain.Enums;
 namespace Fincore.Infrastructure.Services.MasterTable
 {
     public class UserService : IUserService
@@ -63,7 +63,11 @@ namespace Fincore.Infrastructure.Services.MasterTable
 
                 Console.WriteLine("GET ALL USERS - Data returned from DATABASE");
 
+                //IQueryable<User> query = db.Users
+                //    .Include(x => x.Role);
+
                 IQueryable<User> query = db.Users
+                    .Where(x => x.IsActive == (byte)IsActive.Active)
                     .Include(x => x.Role);
 
                 if (!string.IsNullOrEmpty(search))
@@ -132,9 +136,13 @@ namespace Fincore.Infrastructure.Services.MasterTable
 
                 Console.WriteLine("GET USER BY ID - Data returned from DATABASE");
 
+                //var user = await db.Users
+                //    .Include(x => x.Role)
+                //    .FirstOrDefaultAsync(x => x.UserId == id);
+
                 var user = await db.Users
-                    .Include(x => x.Role)
-                    .FirstOrDefaultAsync(x => x.UserId == id);
+                        .Include(x => x.Role)
+                        .FirstOrDefaultAsync(x =>x.UserId == id && x.IsActive == (byte)IsActive.Active);
 
                 if (user == null)
                 {
@@ -367,7 +375,17 @@ namespace Fincore.Infrastructure.Services.MasterTable
                         $"User with ID {id} does not exist.");
                 }
 
-                db.Users.Remove(user);
+                if (user.IsActive == (byte)IsActive.Inactive)
+                {
+                    return ApiResponseHelper.Failure<bool>(
+                        "User already deleted.",
+                        "USER_ALREADY_DELETED",
+                        $"User with ID {id} is already inactive.");
+                }
+
+                user.IsActive = (byte)IsActive.Inactive;
+                user.ModifiedAt = DateTime.UtcNow;
+                user.ModifiedBy = 1;
 
                 await db.SaveChangesAsync();
 
