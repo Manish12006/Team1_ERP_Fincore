@@ -25,21 +25,31 @@ namespace Fincore.Application.AutoMapper
             .ForMember(dest => dest.Department,opt => opt.MapFrom(src => src.OpexRequest.BudgetLine.BudgetCategory.Department.DepartmentName));
 
             // Vendpr
-            CreateMap<APInvoice, VendorSpendDTO>()
-                .ForMember(d => d.VendorCode,
-                 o => o.MapFrom(s => s.Vendor.VendorCode))
-                .ForMember(d => d.CompanyName,
-                o => o.MapFrom(s => s.Vendor.Company.CompanyName))
-                .ForMember(d => d.APInvoiceNumber,
-                 o => o.MapFrom(s => s.InvoiceNumber))
-                .ForMember(d => d.InvoiceDate,
-                    o => o.MapFrom(s => s.InvoiceDate))
-                .ForMember(d => d.DueDate,
-                o => o.MapFrom(s => s.DueDate))
-                .ForMember(d => d.PaymentStatus,
-                o => o.MapFrom(s => s.PaymentStatus))
-                .ForMember(d => d.ApprovalStatus,
-                o => o.MapFrom(s => s.ApprovalStatus));
+            CreateMap<Fincore.Domain.Models.Payment, VendorSpendDTO>()
+                 .ForMember(d => d.PaymentId,
+                     o => o.MapFrom(s => s.PaymentId))
+                 .ForMember(d => d.PaymentNumber,
+                     o => o.MapFrom(s => s.PaymentNumber))
+                 .ForMember(d => d.Amount,
+                     o => o.MapFrom(s => s.Amount))
+                 .ForMember(d => d.PaymentDate,
+                     o => o.MapFrom(s => s.PaymentDate))
+                 .ForMember(d => d.PaymentMethod,
+                     o => o.MapFrom(s => s.PaymentMethod))
+                 .ForMember(d => d.VendorCode,
+                     o => o.MapFrom(s => s.Vendor.VendorCode))
+                 .ForMember(d => d.CompanyName,
+                     o => o.MapFrom(s => s.Vendor.Company.CompanyName))
+                 .ForMember(d => d.APInvoiceNumber,
+                     o => o.MapFrom(s => s.APInvoice.InvoiceNumber))
+                 .ForMember(d => d.InvoiceDate,
+                     o => o.MapFrom(s => s.APInvoice.InvoiceDate))
+                 .ForMember(d => d.DueDate,
+                     o => o.MapFrom(s => s.APInvoice.DueDate))
+                 .ForMember(d => d.PaymentStatus,
+                     o => o.MapFrom(s => s.APInvoice.PaymentStatus))
+                 .ForMember(d => d.ApprovalStatus,
+                     o => o.MapFrom(s => s.ApprovalStatus));
 
             //Capex
             CreateMap<CapexRequest, CapexReportDTO>()
@@ -69,23 +79,12 @@ namespace Fincore.Application.AutoMapper
 
 
             CreateMap<JournalEntry, BalanceSheetReportDTO>()
-              .ForMember(dest => dest.AccountCode,
-                  opt => opt.MapFrom(src => src.AccountMaster.AccountCode))
-
-              .ForMember(dest => dest.AccountName,
-                  opt => opt.MapFrom(src => src.AccountMaster.AccountName))
-
-              .ForMember(dest => dest.AccountType,
-                  opt => opt.MapFrom(src => src.AccountMaster.AccountType))
-
-              .ForMember(dest => dest.DebitAmount,
-                  opt => opt.MapFrom(src => src.DebitAmount ?? 0))
-
-              .ForMember(dest => dest.CreditAmount,
-                  opt => opt.MapFrom(src => src.CreditAmount ?? 0))
-
-              .ForMember(dest => dest.Balance,
-                  opt => opt.MapFrom(src => (src.DebitAmount ?? 0) - (src.CreditAmount ?? 0)));
+              .ForMember(dest => dest.AccountCode,opt => opt.MapFrom(src => src.AccountMaster.AccountCode))
+              .ForMember(dest => dest.AccountName,opt => opt.MapFrom(src => src.AccountMaster.AccountName))
+              .ForMember(dest => dest.AccountType,opt => opt.MapFrom(src => src.AccountMaster.AccountType))
+              .ForMember(dest => dest.DebitAmount,opt => opt.MapFrom(src => src.DebitAmount ?? 0))
+              .ForMember(dest => dest.CreditAmount,opt => opt.MapFrom(src => src.CreditAmount ?? 0))
+              .ForMember(dest => dest.Balance,opt => opt.MapFrom(src => (src.DebitAmount ?? 0) - (src.CreditAmount ?? 0)));
         }
     }
 }
