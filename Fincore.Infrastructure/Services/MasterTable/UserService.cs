@@ -5,8 +5,9 @@ using Fincore.Application.Interfaces.IMasterTable;
 using Fincore.Domain.Models;
 using Fincore.Infrastructure.CommonHelper;
 using Fincore.Infrastructure.Data;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace Fincore.Infrastructure.Services.MasterTable
 {
@@ -15,20 +16,25 @@ namespace Fincore.Infrastructure.Services.MasterTable
         private readonly AppDbContext db;
         private readonly IMapper mapper;
         private readonly IPasswordHasher<User> passwordHasher;
+        private readonly IMemoryCache cache;
+        private static int userCacheVersion = 1;
 
         public UserService(
             AppDbContext db,
             IMapper mapper,
-            IPasswordHasher<User> passwordHasher)
+            IPasswordHasher<User> passwordHasher,
+            IMemoryCache cache)
         {
             this.db = db;
             this.mapper = mapper;
             this.passwordHasher = passwordHasher;
+            this.cache = cache;
         }
 
         public async Task<ApiResponse<List<UserDto>>> GetAllUsersAsync(
             int pageNumber,
-            int pageSize)
+            int pageSize,
+            string? search)
         {
             try
             {
@@ -38,16 +44,45 @@ namespace Fincore.Infrastructure.Services.MasterTable
                 if (pageSize <= 0)
                     pageSize = 10;
 
-                var totalRecords = await db.Users.CountAsync();
+                if (!string.IsNullOrEmpty(search))
+                {
+                    search = search.Trim();
+                }
 
-                var users = await db.Users
-                    .Include(x => x.Role)
+                string cacheKey =
+                    $"users_{userCacheVersion}_page_{pageNumber}_size_{pageSize}_search_{search}";
+
+                if (cache.TryGetValue(
+                    cacheKey,
+                    out ApiResponse<List<UserDto>> cachedData))
+                {
+                    Console.WriteLine("GET ALL USERS - Data returned from CACHE");
+
+                    return cachedData;
+                }
+
+                Console.WriteLine("GET ALL USERS - Data returned from DATABASE");
+
+                IQueryable<User> query = db.Users
+                    .Include(x => x.Role);
+
+                if (!string.IsNullOrEmpty(search))
+                {
+                    query = query.Where(x =>
+                        x.FullName.Contains(search) ||
+                        x.Email.Contains(search));
+                }
+
+                int totalRecords = await query.CountAsync();
+
+                List<User> users = await query
                     .OrderBy(x => x.UserId)
                     .Skip((pageNumber - 1) * pageSize)
                     .Take(pageSize)
                     .ToListAsync();
 
-                var userDtos = mapper.Map<List<UserDto>>(users);
+                List<UserDto> userDtos =
+                    mapper.Map<List<UserDto>>(users);
 
                 var metadata = new
                 {
@@ -57,11 +92,19 @@ namespace Fincore.Infrastructure.Services.MasterTable
                         totalRecords / (double)pageSize)
                 };
 
-                return ApiResponseHelper.SuccessRes(
-                    userDtos,
-                    "Users retrieved successfully.",
-                    totalRecords,
-                    metadata);
+                ApiResponse<List<UserDto>> response =
+                    ApiResponseHelper.SuccessRes(
+                        userDtos,
+                        "Users retrieved successfully.",
+                        totalRecords,
+                        metadata);
+
+                cache.Set(
+                    cacheKey,
+                    response,
+                    TimeSpan.FromMinutes(5));
+
+                return response;
             }
             catch (Exception ex)
             {
@@ -76,6 +119,19 @@ namespace Fincore.Infrastructure.Services.MasterTable
         {
             try
             {
+                string cacheKey = $"user_{id}";
+
+                if (cache.TryGetValue(
+                    cacheKey,
+                    out ApiResponse<UserDto> cachedData))
+                {
+                    Console.WriteLine("GET USER BY ID - Data returned from CACHE");
+
+                    return cachedData;
+                }
+
+                Console.WriteLine("GET USER BY ID - Data returned from DATABASE");
+
                 var user = await db.Users
                     .Include(x => x.Role)
                     .FirstOrDefaultAsync(x => x.UserId == id);
@@ -90,9 +146,17 @@ namespace Fincore.Infrastructure.Services.MasterTable
 
                 var userDto = mapper.Map<UserDto>(user);
 
-                return ApiResponseHelper.SuccessRes(
-                    userDto,
-                    "User retrieved successfully.");
+                ApiResponse<UserDto> response =
+                    ApiResponseHelper.SuccessRes(
+                        userDto,
+                        "User retrieved successfully.");
+
+                cache.Set(
+                    cacheKey,
+                    response,
+                    TimeSpan.FromMinutes(5));
+
+                return response;
             }
             catch (Exception ex)
             {
@@ -159,17 +223,27 @@ namespace Fincore.Infrastructure.Services.MasterTable
                 await db.Users.AddAsync(user);
                 await db.SaveChangesAsync();
 
+                userCacheVersion++;
 
                 var createdUser = await db.Users
                     .Include(x => x.Role)
-                    .FirstOrDefaultAsync(
-                        x => x.UserId == user.UserId);
+                    .FirstOrDefaultAsync(x => x.UserId == user.UserId);
 
                 var result = mapper.Map<UserDto>(createdUser);
 
-                return ApiResponseHelper.SuccessRes(
-                    result,
-                    "User created successfully.");
+                ApiResponse<UserDto> response =
+                    ApiResponseHelper.SuccessRes(
+                        result,
+                        "User created successfully.");
+
+                string cacheKey = $"user_{user.UserId}";
+
+                cache.Set(
+                    cacheKey,
+                    response,
+                    TimeSpan.FromMinutes(5));
+
+                return response;
             }
             catch (Exception ex)
             {
@@ -233,7 +307,6 @@ namespace Fincore.Infrastructure.Services.MasterTable
                         $"User with ID {updateUserDto.ModifiedBy} does not exist.");
                 }
 
-
                 user.RoleId = updateUserDto.RoleId;
                 user.FullName = updateUserDto.FullName;
                 user.Email = updateUserDto.Email;
@@ -244,9 +317,9 @@ namespace Fincore.Infrastructure.Services.MasterTable
                 user.ModifiedBy = updateUserDto.ModifiedBy;
                 user.ModifiedAt = DateTime.UtcNow;
 
-
                 await db.SaveChangesAsync();
 
+                userCacheVersion++;
 
                 var updatedUser = await db.Users
                     .Include(x => x.Role)
@@ -254,9 +327,21 @@ namespace Fincore.Infrastructure.Services.MasterTable
 
                 var result = mapper.Map<UserDto>(updatedUser);
 
-                return ApiResponseHelper.SuccessRes(
-                    result,
-                    "User updated successfully.");
+                ApiResponse<UserDto> response =
+                    ApiResponseHelper.SuccessRes(
+                        result,
+                        "User updated successfully.");
+
+                string cacheKey = $"user_{id}";
+
+                cache.Remove(cacheKey);
+
+                cache.Set(
+                    cacheKey,
+                    response,
+                    TimeSpan.FromMinutes(5));
+
+                return response;
             }
             catch (Exception ex)
             {
@@ -285,6 +370,12 @@ namespace Fincore.Infrastructure.Services.MasterTable
                 db.Users.Remove(user);
 
                 await db.SaveChangesAsync();
+
+                userCacheVersion++;
+
+                string cacheKey = $"user_{id}";
+
+                cache.Remove(cacheKey);
 
                 return ApiResponseHelper.SuccessRes(
                     true,
