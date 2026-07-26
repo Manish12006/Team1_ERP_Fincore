@@ -7,7 +7,13 @@ namespace Fincore.Application.Interfaces.WorkOrder
     {
     
         Task<ApiResponse<string>> AddWorkOrder(CreateWorkOrderDTO dto);
-        Task<ApiResponse<List<WorkOrderResponseDTO>>> GetWorkOrders(int page, int pageSize);
+        Task<ApiResponse<List<WorkOrderResponseDTO>>> GetWorkOrders(
+       string? title,
+       int? vendorId,
+       int? opexRequestId,
+       string? status,
+       int page,
+       int pageSize);
 
         Task<ApiResponse<WorkOrderResponseDTO>> GetWorkOrderById(int id);
 

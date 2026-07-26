@@ -22,14 +22,47 @@ namespace Fincore.API.Controllers
         public async Task<IActionResult> AddWorkOrder(CreateWorkOrderDTO dto)
         {
             var response = await _workOrderService.AddWorkOrder(dto);
+
+            if (!response.success)
+                return BadRequest(response);
+
             return Ok(response);
         }
 
         // Get All
         [HttpGet]
-        public async Task<IActionResult> GetWorkOrders(int page = 1, int pageSize = 5)
+        public async Task<IActionResult> GetWorkOrders(
+       string? title,
+       int? vendorId,
+       int? opexRequestId,
+       string? status,
+       int page = 1,
+       int pageSize = 5)
+
+
         {
-            var response = await _workOrderService.GetWorkOrders(page, pageSize);
+            if (page <= 0)
+            {
+                return BadRequest("Page Number must be greater than 0");
+            }
+
+            if (pageSize <= 0)
+            {
+                return BadRequest("Page Size must be greater than 0");
+            }
+
+            if (pageSize > 50)
+            {
+                return BadRequest("Maximum Page Size is 50");
+            }
+            var response = await _workOrderService.GetWorkOrders(
+                title,
+                vendorId,
+                opexRequestId,
+                status,
+                page,
+                pageSize);
+
             return Ok(response);
         }
 

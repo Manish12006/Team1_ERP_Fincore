@@ -26,7 +26,51 @@ namespace Fincore.Infrastructure.Services.Budget
         public async Task<ApiResponse<string>> AddBudget(CreateBudgetDTO dto)
         {
             ApiResponse<string> response = new();
+            if (string.IsNullOrWhiteSpace(dto.BudgetCode))
+            {
+                response.success = false;
+                response.message = "Budget Code is required";
+                return response;
+            }
+            if (string.IsNullOrWhiteSpace(dto.BudgetName))
+            {
+                response.success = false;
+                response.message = "Budget Name is required";
+                return response;
+            }
+            if (dto.BudgetName.Length > 30)
+            {
+                response.success = false;
+                response.message = "Budget Name should not exceed 30 characters";
+                return response;
+            }
+            if (dto.BudgetAmount <= 0)
+            {
+                response.success = false;
+                response.message = "Budget Amount must be greater than zero";
+                return response;
+            }
+            if (string.IsNullOrWhiteSpace(dto.FinancialYear))
+            {
+                response.success = false;
+                response.message = "Financial Year is required";
+                return response;
+            }
+            if (dto.StartDate > dto.EndDate)
+            {
+                response.success = false;
+                response.message = "Start Date cannot be greater than End Date";
+                return response;
+            }
+            var budget = await _context.Budgets
+    .FirstOrDefaultAsync(x => x.BudgetCode == dto.BudgetCode);
 
+            if (budget != null)
+            {
+                response.success = false;
+                response.message = "Budget Code Already Exists";
+                return response;
+            }
             var entity = _mapper.Map<Fincore.Domain.Models.Budget>(dto);
 
             entity.CreatedAt = DateTime.Now;
@@ -61,7 +105,9 @@ namespace Fincore.Infrastructure.Services.Budget
 
             if (!_cache.TryGetValue(cacheKey, out List<BudgetResponseDTO> data))
             {
-                var query = _context.Budgets.AsQueryable();
+                var query = _context.Budgets
+    .Where(x => x.IsActive == 1)
+    .AsQueryable();
 
                 if (!string.IsNullOrEmpty(budgetCode))
                     query = query.Where(x => x.BudgetCode.Contains(budgetCode));
@@ -105,7 +151,7 @@ namespace Fincore.Infrastructure.Services.Budget
             if (!_cache.TryGetValue(cacheKey, out BudgetResponseDTO dto))
             {
                 var entity = await _context.Budgets
-                    .FirstOrDefaultAsync(x => x.BudgetId == id);
+     .FirstOrDefaultAsync(x => x.BudgetId == id && x.IsActive == 1);
 
                 if (entity == null)
                 {
@@ -132,6 +178,36 @@ namespace Fincore.Infrastructure.Services.Budget
             var entity = await _context.Budgets
                 .FirstOrDefaultAsync(x => x.BudgetId == id);
 
+            if (string.IsNullOrWhiteSpace(dto.BudgetName))
+            {
+                response.success = false;
+                response.message = "Budget Name is required";
+                return response;
+            }
+            if (dto.BudgetName.Length > 30)
+            {
+                response.success = false;
+                response.message = "Budget Name should not exceed 30 characters";
+                return response;
+            }
+            if (dto.BudgetAmount <= 0)
+            {
+                response.success = false;
+                response.message = "Budget Amount must be greater than zero";
+                return response;
+            }
+            if (string.IsNullOrWhiteSpace(dto.FinancialYear))
+            {
+                response.success = false;
+                response.message = "Financial Year is required";
+                return response;
+            }
+            if (dto.StartDate > dto.EndDate)
+            {
+                response.success = false;
+                response.message = "Start Date cannot be greater than End Date";
+                return response;
+            }
             if (entity == null)
             {
                 response.success = false;
@@ -167,8 +243,9 @@ namespace Fincore.Infrastructure.Services.Budget
                 response.message = "Budget Not Found";
                 return response;
             }
+            entity.IsActive = 0;
 
-            _context.Budgets.Remove(entity);
+            entity.ModifiedAt = DateTime.Now;
 
             await _context.SaveChangesAsync();
 
@@ -187,9 +264,8 @@ namespace Fincore.Infrastructure.Services.Budget
                 new ApiResponse<BudgetSummaryDTO>();
 
             BudgetSummaryDTO summary = new();
-
             summary.TotalBudgets =
-                await _context.Budgets.CountAsync();
+    await _context.Budgets.CountAsync(x => x.IsActive == 1);
 
             summary.ActiveBudgets =
                 await _context.Budgets.CountAsync(x => x.IsActive == 1);
@@ -198,7 +274,9 @@ namespace Fincore.Infrastructure.Services.Budget
                 await _context.Budgets.CountAsync(x => x.IsActive == 0);
 
             summary.TotalBudgetAmount =
-                await _context.Budgets.SumAsync(x => x.BudgetAmount);
+                await _context.Budgets
+                    .Where(x => x.IsActive == 1)
+                    .SumAsync(x => x.BudgetAmount);
 
             response.success = true;
             response.message = "Budget Summary Fetched Successfully";
