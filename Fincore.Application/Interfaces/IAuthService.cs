@@ -9,7 +9,7 @@ namespace Fincore.Application.Interfaces
 {
     public interface IAuthService
     {
-        Task<string> Register(RegisterDTO dto);
+        Task<RegisterResponseDTO> Register(RegisterDTO dto);
         Task<LoginResponseDTO> Login(LoginDTO dto);
         Task<LoginResponseDTO> VerifyOtpAndLogin(Verify2FADTO dto);
         Task<LoginResponseDTO> RefreshToken(RefreshTokenRequestDTO dto);

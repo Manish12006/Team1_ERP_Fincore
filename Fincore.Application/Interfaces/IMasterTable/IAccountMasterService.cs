@@ -11,7 +11,7 @@ namespace Fincore.Application.Interfaces.IMasterTable
 {
     public interface IAccountMasterService
     {
-        Task<ApiResponse<AccountMasterPostDTO>> AddAccountsMaster(AccountMasterPostDTO dto, int count);
+        Task<ApiResponse<AccountMasterPostDTO>> AddAccountsMaster(AccountMasterPostDTO dto, int count, AccountType type);
 
         Task<int> GetCount();
 
@@ -21,7 +21,7 @@ namespace Fincore.Application.Interfaces.IMasterTable
 
         Task<ApiResponse<AccountMasterGetDTO>> GetAccountById(int id);
 
-        Task<ApiResponse<AccountMasterGetDTO>> UpdateAccount(int id, AccountMasterPutDTO dto);
+        Task<ApiResponse<AccountMasterGetDTO>> UpdateAccount(int id, AccountMasterPutDTO dto, AccountType type);
 
         Task<ApiResponse<List<AccountMasterGetDTO>>> GetActiveAccounts(int page, int pageSize);
 

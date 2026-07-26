@@ -70,7 +70,7 @@ namespace Fincore.Infrastructure.Services
             var user = await db.Users.Include(x => x.Role).FirstOrDefaultAsync(x => x.Email == dto.Email);
             if (user == null || user.IsActive == 0)
             {
-                throw new Exception("Invalid Email or User is Inactive");
+                throw new Exception("Invalid Credentials");
             }
             bool isPasswordValid = VerifyPassword(dto.Password, user.PasswordHash);
             if (!isPasswordValid)
@@ -165,7 +165,7 @@ namespace Fincore.Infrastructure.Services
             return "2FA enabled successfully.";
         }
 
-        public async Task<string> Register(RegisterDTO dto)
+        public async Task<RegisterResponseDTO> Register(RegisterDTO dto)
         {
             var existing = await db.Users.FirstOrDefaultAsync(x => x.Email == dto.Email);
             if (existing != null)
@@ -198,7 +198,18 @@ namespace Fincore.Infrastructure.Services
             user.ModifiedBy = user.UserId;
             await db.SaveChangesAsync();
 
-            return "User registered successfully.";
+            var role = await db.Roles.FirstOrDefaultAsync(x => x.RoleId == user.RoleId);
+
+            return new RegisterResponseDTO
+            {
+                UserId = user.UserId,
+                FullName = user.FullName,
+                Email = user.Email,
+                RoleName = role?.RoleName,
+                UserCategory = user.UserCategory,
+                Is2FAEnabled = user.Is2FAEnabled,
+                CreatedAt = user.CreatedAt
+            };
         }
 
 

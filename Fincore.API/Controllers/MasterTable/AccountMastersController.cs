@@ -15,7 +15,7 @@ namespace Fincore.API.Controllers.MasterTable
 {
     [Route("api/v1/accountmasters")]
     [ApiController]
-    [Authorize]
+    
     public class AccountMastersController : ControllerBase
     {
         private readonly IAccountMasterService _service;
@@ -26,13 +26,13 @@ namespace Fincore.API.Controllers.MasterTable
         }
 
         [HttpPost]
-        public async Task<IActionResult> AddAccountMasters(AccountMasterPostDTO dto)
+        public async Task<IActionResult> AddAccountMasters(AccountMasterPostDTO dto, AccountType type)
         {
             try
             {
                 var count = await _service.GetCount();
-
-                var result = await _service.AddAccountsMaster(dto, count);
+                
+                var result = await _service.AddAccountsMaster(dto, count, type);
                 return Ok(result);
             }
             catch (Exception ex)
@@ -109,11 +109,11 @@ namespace Fincore.API.Controllers.MasterTable
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateAccount(int id, AccountMasterPutDTO dto)
+        public async Task<IActionResult> UpdateAccount(int id, AccountMasterPutDTO dto, AccountType type)
         {
             try
             {
-                var result = await _service.UpdateAccount(id, dto);
+                var result = await _service.UpdateAccount(id, dto, type);
 
                 if (!result.success)
                     return NotFound(result);
