@@ -124,7 +124,7 @@ namespace Fincore.Infrastructure.Services.MasterTable
             switch (dto.MasterTypeId)
             {
                 case 1:
-                    folderName = "Employee";
+                    folderName = "Company";
                     break;
 
                 case 2:
@@ -132,7 +132,10 @@ namespace Fincore.Infrastructure.Services.MasterTable
                     break;
 
                 case 3:
-                    folderName = "Company";
+                    folderName = "Employee";
+                    break;
+                case 4:
+                    folderName = "Customer";
                     break;
 
                 default:
