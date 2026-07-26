@@ -5,7 +5,7 @@ namespace Fincore.Application.Interfaces.IMasterTable
 {
     public interface IRoleService
     {
-        Task<ApiResponse<List<RoleDto>>> GetAllRolesAsync(int pageNumber,int pageSize);
+        Task<ApiResponse<List<RoleDto>>> GetAllRolesAsync(int pageNumber,int pageSize, string? search);
 
         Task<ApiResponse<RoleDto>> GetRoleByIdAsync(int id);
 

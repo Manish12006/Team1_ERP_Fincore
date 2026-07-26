@@ -2,10 +2,12 @@
 using Fincore.Application.DTO;
 using Fincore.Application.DTO.MasterTable;
 using Fincore.Application.Interfaces.IMasterTable;
+using Fincore.Domain.Enums;
 using Fincore.Domain.Models;
 using Fincore.Infrastructure.CommonHelper;
 using Fincore.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace Fincore.Infrastructure.Services.MasterTable
 {
@@ -13,18 +15,29 @@ namespace Fincore.Infrastructure.Services.MasterTable
     {
         private readonly AppDbContext db;
         private readonly IMapper mapper;
+        private readonly IMemoryCache cache;
+        private static int roleCacheVersion = 1;
 
         public RoleService(
             AppDbContext db,
-            IMapper mapper)
+            IMapper mapper,
+            IMemoryCache cache)
         {
             this.db = db;
             this.mapper = mapper;
+            this.cache = cache;
+        }
+
+        private IQueryable<Role> GetRoleQuery()
+        {
+            return db.Roles
+                .Where(x => x.IsActive == (byte)IsActive.Active);
         }
 
         public async Task<ApiResponse<List<RoleDto>>> GetAllRolesAsync(
             int pageNumber,
-            int pageSize)
+            int pageSize,
+            string? search)
         {
             try
             {
@@ -34,15 +47,39 @@ namespace Fincore.Infrastructure.Services.MasterTable
                 if (pageSize <= 0)
                     pageSize = 10;
 
-                var totalRecords = await db.Roles.CountAsync();
+                if (!string.IsNullOrEmpty(search))
+                    search = search.Trim();
 
-                var roles = await db.Roles
+                string cacheKey =
+                    $"roles_{roleCacheVersion}_page_{pageNumber}_size_{pageSize}_search_{search}";
+
+                if (cache.TryGetValue(
+                    cacheKey,
+                    out ApiResponse<List<RoleDto>> cachedData))
+                {
+                    return cachedData;
+                }
+
+                IQueryable<Role> query = GetRoleQuery();
+
+                if (!string.IsNullOrEmpty(search))
+                {
+                    query = query.Where(x =>
+                        x.RoleName.Contains(search) ||
+                        (x.Description != null &&
+                         x.Description.Contains(search)));
+                }
+
+                int totalRecords = await query.CountAsync();
+
+                List<Role> roles = await query
                     .OrderBy(x => x.RoleId)
                     .Skip((pageNumber - 1) * pageSize)
                     .Take(pageSize)
                     .ToListAsync();
 
-                var roleDtos = mapper.Map<List<RoleDto>>(roles);
+                List<RoleDto> roleDtos =
+                    mapper.Map<List<RoleDto>>(roles);
 
                 var metadata = new
                 {
@@ -52,11 +89,19 @@ namespace Fincore.Infrastructure.Services.MasterTable
                         totalRecords / (double)pageSize)
                 };
 
-                return ApiResponseHelper.SuccessRes(
-                    roleDtos,
-                    "Roles retrieved successfully.",
-                    totalRecords,
-                    metadata);
+                ApiResponse<List<RoleDto>> response =
+                    ApiResponseHelper.SuccessRes(
+                        roleDtos,
+                        "Roles retrieved successfully.",
+                        totalRecords,
+                        metadata);
+
+                cache.Set(
+                    cacheKey,
+                    response,
+                    TimeSpan.FromMinutes(5));
+
+                return response;
             }
             catch (Exception ex)
             {
@@ -71,7 +116,16 @@ namespace Fincore.Infrastructure.Services.MasterTable
         {
             try
             {
-                var role = await db.Roles
+                string cacheKey = $"role_{id}";
+
+                if (cache.TryGetValue(
+                    cacheKey,
+                    out ApiResponse<RoleDto> cachedData))
+                {
+                    return cachedData;
+                }
+
+                Role role = await GetRoleQuery()
                     .FirstOrDefaultAsync(x => x.RoleId == id);
 
                 if (role == null)
@@ -82,11 +136,19 @@ namespace Fincore.Infrastructure.Services.MasterTable
                         $"Role with ID {id} does not exist.");
                 }
 
-                var roleDto = mapper.Map<RoleDto>(role);
+                RoleDto roleDto = mapper.Map<RoleDto>(role);
 
-                return ApiResponseHelper.SuccessRes(
-                    roleDto,
-                    "Role retrieved successfully.");
+                ApiResponse<RoleDto> response =
+                    ApiResponseHelper.SuccessRes(
+                        roleDto,
+                        "Role retrieved successfully.");
+
+                cache.Set(
+                    cacheKey,
+                    response,
+                    TimeSpan.FromMinutes(5));
+
+                return response;
             }
             catch (Exception ex)
             {
@@ -102,11 +164,13 @@ namespace Fincore.Infrastructure.Services.MasterTable
         {
             try
             {
-                var roleExists = await db.Roles
-                    .AnyAsync(x =>
-                        x.RoleName == createRoleDto.RoleName);
+                Role existingRole = await db.Roles
+                    .FirstOrDefaultAsync(x =>
+                        x.RoleName.ToLower() ==
+                        createRoleDto.RoleName.ToLower() &&
+                        x.IsActive == (byte)IsActive.Active);
 
-                if (roleExists)
+                if (existingRole != null)
                 {
                     return ApiResponseHelper.Failure<RoleDto>(
                         "Role name already exists.",
@@ -114,7 +178,7 @@ namespace Fincore.Infrastructure.Services.MasterTable
                         $"Role with name {createRoleDto.RoleName} already exists.");
                 }
 
-                var createdByExists = await db.Users
+                bool createdByExists = await db.Users
                     .AnyAsync(x =>
                         x.UserId == createRoleDto.CreatedBy);
 
@@ -126,29 +190,34 @@ namespace Fincore.Infrastructure.Services.MasterTable
                         $"User with ID {createRoleDto.CreatedBy} does not exist.");
                 }
 
-
-                var role = mapper.Map<Role>(createRoleDto);
+                Role role = mapper.Map<Role>(createRoleDto);
 
                 role.RoleId = 0;
-
+                role.IsActive = (byte)IsActive.Active;
                 role.CreatedAt = DateTime.UtcNow;
                 role.ModifiedAt = DateTime.UtcNow;
                 role.ModifiedBy = createRoleDto.CreatedBy;
 
-
                 await db.Roles.AddAsync(role);
                 await db.SaveChangesAsync();
 
+                roleCacheVersion++;
 
-                var createdRole = await db.Roles
-                    .FirstOrDefaultAsync(
-                        x => x.RoleId == role.RoleId);
+                RoleDto result = mapper.Map<RoleDto>(role);
 
-                var result = mapper.Map<RoleDto>(createdRole);
+                ApiResponse<RoleDto> response =
+                    ApiResponseHelper.SuccessRes(
+                        result,
+                        "Role created successfully.");
 
-                return ApiResponseHelper.SuccessRes(
-                    result,
-                    "Role created successfully.");
+                string cacheKey = $"role_{role.RoleId}";
+
+                cache.Set(
+                    cacheKey,
+                    response,
+                    TimeSpan.FromMinutes(5));
+
+                return response;
             }
             catch (Exception ex)
             {
@@ -165,7 +234,7 @@ namespace Fincore.Infrastructure.Services.MasterTable
         {
             try
             {
-                var role = await db.Roles
+                Role role = await GetRoleQuery()
                     .FirstOrDefaultAsync(x => x.RoleId == id);
 
                 if (role == null)
@@ -176,12 +245,14 @@ namespace Fincore.Infrastructure.Services.MasterTable
                         $"Role with ID {id} does not exist.");
                 }
 
-                var roleNameExists = await db.Roles
-                    .AnyAsync(x =>
-                        x.RoleName == updateRoleDto.RoleName &&
-                        x.RoleId != id);
+                Role existingRole = await db.Roles
+                    .FirstOrDefaultAsync(x =>
+                        x.RoleName.ToLower() ==
+                        updateRoleDto.RoleName.ToLower() &&
+                        x.RoleId != id &&
+                        x.IsActive == (byte)IsActive.Active);
 
-                if (roleNameExists)
+                if (existingRole != null)
                 {
                     return ApiResponseHelper.Failure<RoleDto>(
                         "Role name already exists.",
@@ -189,7 +260,7 @@ namespace Fincore.Infrastructure.Services.MasterTable
                         $"Role with name {updateRoleDto.RoleName} already exists.");
                 }
 
-                var modifiedByExists = await db.Users
+                bool modifiedByExists = await db.Users
                     .AnyAsync(x =>
                         x.UserId == updateRoleDto.ModifiedBy);
 
@@ -201,25 +272,32 @@ namespace Fincore.Infrastructure.Services.MasterTable
                         $"User with ID {updateRoleDto.ModifiedBy} does not exist.");
                 }
 
-
                 role.RoleName = updateRoleDto.RoleName;
                 role.Description = updateRoleDto.Description;
-                role.IsActive = updateRoleDto.IsActive;
                 role.ModifiedBy = updateRoleDto.ModifiedBy;
                 role.ModifiedAt = DateTime.UtcNow;
 
-
                 await db.SaveChangesAsync();
 
+                roleCacheVersion++;
 
-                var updatedRole = await db.Roles
-                    .FirstOrDefaultAsync(x => x.RoleId == id);
+                RoleDto result = mapper.Map<RoleDto>(role);
 
-                var result = mapper.Map<RoleDto>(updatedRole);
+                ApiResponse<RoleDto> response =
+                    ApiResponseHelper.SuccessRes(
+                        result,
+                        "Role updated successfully.");
 
-                return ApiResponseHelper.SuccessRes(
-                    result,
-                    "Role updated successfully.");
+                string cacheKey = $"role_{id}";
+
+                cache.Remove(cacheKey);
+
+                cache.Set(
+                    cacheKey,
+                    response,
+                    TimeSpan.FromMinutes(5));
+
+                return response;
             }
             catch (Exception ex)
             {
@@ -234,7 +312,7 @@ namespace Fincore.Infrastructure.Services.MasterTable
         {
             try
             {
-                var role = await db.Roles
+                Role role = await db.Roles
                     .FirstOrDefaultAsync(x => x.RoleId == id);
 
                 if (role == null)
@@ -245,11 +323,24 @@ namespace Fincore.Infrastructure.Services.MasterTable
                         $"Role with ID {id} does not exist.");
                 }
 
+                if (role.IsActive == (byte)IsActive.Inactive)
+                {
+                    return ApiResponseHelper.Failure<bool>(
+                        "Role already deleted.",
+                        "ROLE_ALREADY_DELETED",
+                        "Role is already inactive.");
+                }
 
-                db.Roles.Remove(role);
+                role.IsActive = (byte)IsActive.Inactive;
+                role.ModifiedAt = DateTime.UtcNow;
 
                 await db.SaveChangesAsync();
 
+                roleCacheVersion++;
+
+                string cacheKey = $"role_{id}";
+
+                cache.Remove(cacheKey);
 
                 return ApiResponseHelper.SuccessRes(
                     true,
