@@ -2,10 +2,12 @@
 using Fincore.Application.DTO;
 using Fincore.Application.DTO.MasterTable;
 using Fincore.Application.Interfaces.IMasterTable;
+using Fincore.Domain.Enums;
 using Fincore.Domain.Models;
 using Fincore.Infrastructure.CommonHelper;
 using Fincore.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace Fincore.Infrastructure.Services.MasterTable
 {
@@ -13,55 +15,110 @@ namespace Fincore.Infrastructure.Services.MasterTable
     {
         private readonly AppDbContext db;
         private readonly IMapper mapper;
+        private readonly IMemoryCache cache;
+        private static int vendorCacheVersion = 1;
 
         public VendorService(
             AppDbContext db,
-            IMapper mapper)
+            IMapper mapper,
+            IMemoryCache cache)
         {
             this.db = db;
             this.mapper = mapper;
+            this.cache = cache;
+        }
+
+        private IQueryable<Vendor> GetVendorQuery()
+        {
+            return db.Vendors
+                .Where(x => x.IsActive == (byte)IsActive.Active)
+                .Include(x => x.VendorCategory)
+                .Include(x => x.Company)
+                .Include(x => x.CreatedByUser)
+                .Include(x => x.ModifiedByUser);
         }
 
         public async Task<ApiResponse<List<VendorDto>>> GetAllVendorsAsync(
             int pageNumber,
-            int pageSize)
+            int pageSize,
+            string? search)
         {
             try
             {
                 if (pageNumber <= 0)
+                {
                     pageNumber = 1;
+                }
 
                 if (pageSize <= 0)
+                {
                     pageSize = 10;
+                }
 
-                var totalRecords = await db.Vendors.CountAsync();
+                if (!string.IsNullOrEmpty(search))
+                {
+                    search = search.Trim();
+                }
 
-                var vendors = await db.Vendors
-                    .Include(x => x.VendorCategory)
-                    .Include(x => x.Company)
-                    .Include(x => x.CreatedByUser)
-                    .Include(x => x.ModifiedByUser)
+                string cacheKey =
+                    $"vendors_{vendorCacheVersion}_page_{pageNumber}_size_{pageSize}_search_{search}";
+
+                if (cache.TryGetValue(
+                    cacheKey,
+                    out ApiResponse<List<VendorDto>> cachedData))
+                {
+                    Console.WriteLine(
+                        "GET ALL VENDORS - Data returned from CACHE");
+
+                    return cachedData;
+                }
+
+                Console.WriteLine(
+                    "GET ALL VENDORS - Data returned from DATABASE");
+
+                IQueryable<Vendor> query = GetVendorQuery();
+
+                if (!string.IsNullOrEmpty(search))
+                {
+                    query = query.Where(x =>
+                        x.VendorCode.Contains(search) ||
+                        x.PAN.Contains(search) ||
+                        x.VendorCategory.CategoryName.Contains(search) ||
+                        x.Company.CompanyName.Contains(search));
+                }
+
+                int totalRecords = await query.CountAsync();
+
+                List<Vendor> vendors = await query
                     .OrderBy(x => x.VendorId)
                     .Skip((pageNumber - 1) * pageSize)
                     .Take(pageSize)
                     .ToListAsync();
 
-                var vendorDtos =
+                List<VendorDto> vendorDtos =
                     mapper.Map<List<VendorDto>>(vendors);
 
                 var metadata = new
                 {
-                    pageNumber,
-                    pageSize,
-                    totalPages = (int)Math.Ceiling(
-                        totalRecords / (double)pageSize)
+                    CurrentPage = pageNumber,
+                    PageSize = pageSize,
+                    TotalPages = (int)Math.Ceiling(
+                        (double)totalRecords / pageSize)
                 };
 
-                return ApiResponseHelper.SuccessRes(
-                    vendorDtos,
-                    "Vendors retrieved successfully.",
-                    totalRecords,
-                    metadata);
+                ApiResponse<List<VendorDto>> response =
+                    ApiResponseHelper.SuccessRes(
+                        vendorDtos,
+                        "Vendors fetched successfully.",
+                        totalRecords,
+                        metadata);
+
+                cache.Set(
+                    cacheKey,
+                    response,
+                    TimeSpan.FromMinutes(5));
+
+                return response;
             }
             catch (Exception ex)
             {
@@ -77,13 +134,23 @@ namespace Fincore.Infrastructure.Services.MasterTable
         {
             try
             {
-                var vendor = await db.Vendors
-                    .Include(x => x.VendorCategory)
-                    .Include(x => x.Company)
-                    .Include(x => x.CreatedByUser)
-                    .Include(x => x.ModifiedByUser)
-                    .FirstOrDefaultAsync(
-                        x => x.VendorId == id);
+                string cacheKey = $"vendor_{id}";
+
+                if (cache.TryGetValue(
+                    cacheKey,
+                    out ApiResponse<VendorDto> cachedData))
+                {
+                    Console.WriteLine(
+                        "GET VENDOR BY ID - Data returned from CACHE");
+
+                    return cachedData;
+                }
+
+                Console.WriteLine(
+                    "GET VENDOR BY ID - Data returned from DATABASE");
+
+                Vendor vendor = await GetVendorQuery()
+                    .FirstOrDefaultAsync(x => x.VendorId == id);
 
                 if (vendor == null)
                 {
@@ -93,12 +160,20 @@ namespace Fincore.Infrastructure.Services.MasterTable
                         $"Vendor with ID {id} does not exist.");
                 }
 
-                var vendorDto =
+                VendorDto vendorDto =
                     mapper.Map<VendorDto>(vendor);
 
-                return ApiResponseHelper.SuccessRes(
-                    vendorDto,
-                    "Vendor retrieved successfully.");
+                ApiResponse<VendorDto> response =
+                    ApiResponseHelper.SuccessRes(
+                        vendorDto,
+                        "Vendor fetched successfully.");
+
+                cache.Set(
+                    cacheKey,
+                    response,
+                    TimeSpan.FromMinutes(5));
+
+                return response;
             }
             catch (Exception ex)
             {
@@ -114,38 +189,37 @@ namespace Fincore.Infrastructure.Services.MasterTable
         {
             try
             {
-                var vendorCategoryExists =
+                bool vendorCategoryExists =
                     await db.VendorCategories
                         .AnyAsync(x =>
                             x.VendorCategoryId ==
-                            createVendorDto.VendorCategoryId);
+                            createVendorDto.VendorCategoryId &&
+                            x.IsActive == (byte)IsActive.Active);
 
                 if (!vendorCategoryExists)
                 {
                     return ApiResponseHelper.Failure<VendorDto>(
                         "Vendor category not found.",
                         "VENDOR_CATEGORY_NOT_FOUND",
-                        $"Vendor category with ID {createVendorDto.VendorCategoryId} does not exist.");
+                        $"Active vendor category with ID {createVendorDto.VendorCategoryId} does not exist.");
                 }
 
-                var companyExists = await db.Companies
+                bool companyExists = await db.Companies
                     .AnyAsync(x =>
-                        x.CompanyId ==
-                        createVendorDto.CompanyId);
+                        x.CompanyId == createVendorDto.CompanyId &&
+                        x.IsActive == (byte)IsActive.Active);
 
                 if (!companyExists)
                 {
                     return ApiResponseHelper.Failure<VendorDto>(
                         "Company not found.",
                         "COMPANY_NOT_FOUND",
-                        $"Company with ID {createVendorDto.CompanyId} does not exist.");
+                        $"Active company with ID {createVendorDto.CompanyId} does not exist.");
                 }
 
-
-                var vendorCodeExists = await db.Vendors
+                bool vendorCodeExists = await db.Vendors
                     .AnyAsync(x =>
-                        x.VendorCode ==
-                        createVendorDto.VendorCode);
+                        x.VendorCode == createVendorDto.VendorCode);
 
                 if (vendorCodeExists)
                 {
@@ -155,11 +229,9 @@ namespace Fincore.Infrastructure.Services.MasterTable
                         $"Vendor with code {createVendorDto.VendorCode} already exists.");
                 }
 
-
-                var createdByExists = await db.Users
+                bool createdByExists = await db.Users
                     .AnyAsync(x =>
-                        x.UserId ==
-                        createVendorDto.CreatedBy);
+                        x.UserId == createVendorDto.CreatedBy);
 
                 if (!createdByExists)
                 {
@@ -169,12 +241,11 @@ namespace Fincore.Infrastructure.Services.MasterTable
                         $"User with ID {createVendorDto.CreatedBy} does not exist.");
                 }
 
-
-                var vendor =
+                Vendor vendor =
                     mapper.Map<Vendor>(createVendorDto);
 
                 vendor.VendorId = 0;
-
+                vendor.IsActive = (byte)IsActive.Active;
                 vendor.CreatedAt = DateTime.UtcNow;
                 vendor.ModifiedAt = DateTime.UtcNow;
                 vendor.ModifiedBy = createVendorDto.CreatedBy;
@@ -182,21 +253,29 @@ namespace Fincore.Infrastructure.Services.MasterTable
                 await db.Vendors.AddAsync(vendor);
                 await db.SaveChangesAsync();
 
+                vendorCacheVersion++;
 
-                var createdVendor = await db.Vendors
-                    .Include(x => x.VendorCategory)
-                    .Include(x => x.Company)
-                    .Include(x => x.CreatedByUser)
-                    .Include(x => x.ModifiedByUser)
+                Vendor createdVendor = await GetVendorQuery()
                     .FirstOrDefaultAsync(
                         x => x.VendorId == vendor.VendorId);
 
-                var result =
+                VendorDto result =
                     mapper.Map<VendorDto>(createdVendor);
 
-                return ApiResponseHelper.SuccessRes(
-                    result,
-                    "Vendor created successfully.");
+                ApiResponse<VendorDto> response =
+                    ApiResponseHelper.SuccessRes(
+                        result,
+                        "Vendor created successfully.");
+
+                string cacheKey =
+                    $"vendor_{vendor.VendorId}";
+
+                cache.Set(
+                    cacheKey,
+                    response,
+                    TimeSpan.FromMinutes(5));
+
+                return response;
             }
             catch (Exception ex)
             {
@@ -213,7 +292,7 @@ namespace Fincore.Infrastructure.Services.MasterTable
         {
             try
             {
-                var vendor = await db.Vendors
+                Vendor vendor = await GetVendorQuery()
                     .FirstOrDefaultAsync(
                         x => x.VendorId == id);
 
@@ -225,40 +304,37 @@ namespace Fincore.Infrastructure.Services.MasterTable
                         $"Vendor with ID {id} does not exist.");
                 }
 
-
-                var vendorCategoryExists =
+                bool vendorCategoryExists =
                     await db.VendorCategories
                         .AnyAsync(x =>
                             x.VendorCategoryId ==
-                            updateVendorDto.VendorCategoryId);
+                            updateVendorDto.VendorCategoryId &&
+                            x.IsActive == (byte)IsActive.Active);
 
                 if (!vendorCategoryExists)
                 {
                     return ApiResponseHelper.Failure<VendorDto>(
                         "Vendor category not found.",
                         "VENDOR_CATEGORY_NOT_FOUND",
-                        $"Vendor category with ID {updateVendorDto.VendorCategoryId} does not exist.");
+                        $"Active vendor category with ID {updateVendorDto.VendorCategoryId} does not exist.");
                 }
 
-
-                var companyExists = await db.Companies
+                bool companyExists = await db.Companies
                     .AnyAsync(x =>
-                        x.CompanyId ==
-                        updateVendorDto.CompanyId);
+                        x.CompanyId == updateVendorDto.CompanyId &&
+                        x.IsActive == (byte)IsActive.Active);
 
                 if (!companyExists)
                 {
                     return ApiResponseHelper.Failure<VendorDto>(
                         "Company not found.",
                         "COMPANY_NOT_FOUND",
-                        $"Company with ID {updateVendorDto.CompanyId} does not exist.");
+                        $"Active company with ID {updateVendorDto.CompanyId} does not exist.");
                 }
 
-
-                var vendorCodeExists = await db.Vendors
+                bool vendorCodeExists = await db.Vendors
                     .AnyAsync(x =>
-                        x.VendorCode ==
-                        updateVendorDto.VendorCode &&
+                        x.VendorCode == updateVendorDto.VendorCode &&
                         x.VendorId != id);
 
                 if (vendorCodeExists)
@@ -269,11 +345,9 @@ namespace Fincore.Infrastructure.Services.MasterTable
                         $"Vendor with code {updateVendorDto.VendorCode} already exists.");
                 }
 
-
-                var modifiedByExists = await db.Users
+                bool modifiedByExists = await db.Users
                     .AnyAsync(x =>
-                        x.UserId ==
-                        updateVendorDto.ModifiedBy);
+                        x.UserId == updateVendorDto.ModifiedBy);
 
                 if (!modifiedByExists)
                 {
@@ -282,7 +356,6 @@ namespace Fincore.Infrastructure.Services.MasterTable
                         "MODIFIED_BY_USER_NOT_FOUND",
                         $"User with ID {updateVendorDto.ModifiedBy} does not exist.");
                 }
-
 
                 vendor.VendorCode =
                     updateVendorDto.VendorCode;
@@ -305,34 +378,38 @@ namespace Fincore.Infrastructure.Services.MasterTable
                 vendor.IsVerified =
                     updateVendorDto.IsVerified;
 
-                vendor.IsActive =
-                    updateVendorDto.IsActive;
-
-                
                 vendor.ModifiedBy =
                     updateVendorDto.ModifiedBy;
 
                 vendor.ModifiedAt =
                     DateTime.UtcNow;
 
-
                 await db.SaveChangesAsync();
 
+                vendorCacheVersion++;
 
-                var updatedVendor = await db.Vendors
-                    .Include(x => x.VendorCategory)
-                    .Include(x => x.Company)
-                    .Include(x => x.CreatedByUser)
-                    .Include(x => x.ModifiedByUser)
+                Vendor updatedVendor = await GetVendorQuery()
                     .FirstOrDefaultAsync(
                         x => x.VendorId == id);
 
-                var result =
+                VendorDto result =
                     mapper.Map<VendorDto>(updatedVendor);
 
-                return ApiResponseHelper.SuccessRes(
-                    result,
-                    "Vendor updated successfully.");
+                ApiResponse<VendorDto> response =
+                    ApiResponseHelper.SuccessRes(
+                        result,
+                        "Vendor updated successfully.");
+
+                string cacheKey = $"vendor_{id}";
+
+                cache.Remove(cacheKey);
+
+                cache.Set(
+                    cacheKey,
+                    response,
+                    TimeSpan.FromMinutes(5));
+
+                return response;
             }
             catch (Exception ex)
             {
@@ -343,34 +420,54 @@ namespace Fincore.Infrastructure.Services.MasterTable
             }
         }
 
-        public async Task<ApiResponse<bool>> DeleteVendorAsync(
+        public async Task<ApiResponse<string>> DeleteVendorAsync(
             int id)
         {
             try
             {
-                var vendor = await db.Vendors
+                Vendor vendor = await db.Vendors
                     .FirstOrDefaultAsync(
                         x => x.VendorId == id);
 
                 if (vendor == null)
                 {
-                    return ApiResponseHelper.Failure<bool>(
+                    return ApiResponseHelper.Failure<string>(
                         "Vendor not found.",
                         "VENDOR_NOT_FOUND",
                         $"Vendor with ID {id} does not exist.");
                 }
 
-                db.Vendors.Remove(vendor);
+                if (vendor.IsActive ==
+                    (byte)IsActive.Inactive)
+                {
+                    return ApiResponseHelper.Failure<string>(
+                        "Vendor already deleted.",
+                        "409",
+                        "Vendor is already inactive.");
+                }
+
+                vendor.IsActive =
+                    (byte)IsActive.Inactive;
+
+                vendor.ModifiedAt =
+                    DateTime.UtcNow;
 
                 await db.SaveChangesAsync();
 
+                vendorCacheVersion++;
+
+                string cacheKey =
+                    $"vendor_{id}";
+
+                cache.Remove(cacheKey);
+
                 return ApiResponseHelper.SuccessRes(
-                    true,
+                    "Deleted",
                     "Vendor deleted successfully.");
             }
             catch (Exception ex)
             {
-                return ApiResponseHelper.Failure<bool>(
+                return ApiResponseHelper.Failure<string>(
                     "Failed to delete vendor.",
                     "VENDOR_DELETE_ERROR",
                     ex.Message);
