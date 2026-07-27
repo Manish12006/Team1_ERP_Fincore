@@ -13,7 +13,7 @@ namespace Fincore.Domain.Enums
         Approved,
         Rejected,
         Invited,
-        Responded
+        Responded,
         Cancelled,
         Closed
     }
