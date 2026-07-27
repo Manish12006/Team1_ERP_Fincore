@@ -1,11 +1,12 @@
-﻿using AutoMapper;
-using Fincore.Application.DTO.MasterTable;
-using Fincore.Domain.Models;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using AutoMapper;
+using Fincore.Application.DTO.MasterTable;
+using Fincore.Application.DTOs.MasterTable;
+using Fincore.Domain.Models;
 
 namespace Fincore.Application.AutoMapper.MasterTable
 {
@@ -18,6 +19,30 @@ namespace Fincore.Application.AutoMapper.MasterTable
 
            
             CreateMap<UpdateCompanyDto, Company>();
+
+            CreateMap<CountryDto, Country>();
+
+            CreateMap<Country, CountryResponseDto>();
+
+            CreateMap<CityDto, City>();
+
+            CreateMap<City, CityResponseDto>()
+                .ForMember(
+                    dest => dest.StateName,
+                    opt => opt.MapFrom(src => src.State.StateName));
+
+            CreateMap<CurrencyDto, Currency>();
+
+            CreateMap<Currency, CurrencyResponseDto>();
+
+            CreateMap<StateDto, State>();
+
+            CreateMap<State, StateResponseDto>()
+                .ForMember(
+                    dest => dest.CountryName,
+                    opt => opt.MapFrom(src => src.Country.CountryName));
+
+
 
             CreateMap<Company, CompanyDto>()
                 .ForMember(dest => dest.CountryName,

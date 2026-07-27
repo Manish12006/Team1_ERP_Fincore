@@ -1,60 +1,50 @@
-using Fincore.Application.AutoMapper;
-using Fincore.Application.Interfaces.Opex;
-using Fincore.Application.AutoMapper.MasterTable;
-using Fincore.Application.Interfaces.IMasterTable;
-using Fincore.Application.Interfaces.IPayment;
-using Fincore.Application.AutoMapper.MasterTable;
-using Fincore.Application.Interfaces.IMasterTable;
-using Fincore.Application.Interfaces.IPayment;
-
-using Fincore.Application.AutoMapper.Capex;
-using Fincore.Application.Interfaces.ICapex;
-using Fincore.Application.AutoMapper.MasterTable;
-using Fincore.Application.Interfaces.IMasterTable;
-using Fincore.Domain.Models;
-using Fincore.Infrastructure.Data;
-using Fincore.Infrastructure.Seed;
-using Fincore.Infrastructure.Services.MasterTable;
-using Microsoft.AspNetCore.Identity;
-using Fincore.Infrastructure.Services.Capex;
-
-using Fincore.Infrastructure.Services.MasterTable;
-using Fincore.Infrastructure.Services.PaymentModule;
-
-using Fincore.Infrastructure.Services.Opex;
-using Microsoft.AspNetCore.RateLimiting;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
+using System.Text;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
-using QuestPDF.Infrastructure;
-using Fincore.Application.Interfaces;
-using Fincore.Infrastructure.Services;
 using Fincore.Application;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.IdentityModel.Tokens;
-using System.Text;
-using Fincore.Infrastructure;
+using Fincore.Application.AutoMapper;
 using Fincore.Application.AutoMapper.Capex;
-using Fincore.Application.Interfaces.ICapex;
-using Fincore.Infrastructure.Services.Capex;
-using Fincore.Application.Interfaces.ExpenseClaim;
-using Fincore.Infrastructure.Services.ExpenseClaim;
-using Fincore.Application.Interfaces.WorkOrder;
-using Fincore.Infrastructure.Services.WorkOrder;
-using Fincore.Application.Interfaces.BudgetCategory;
-using Fincore.Infrastructure.Services.BudgetCategory;
-using Fincore.Application.Interfaces.Budget;
-using Fincore.Infrastructure.Services.Budget;
-using Fincore.Application.Interfaces.BudgetLine;
-using Fincore.Infrastructure.Services.BudgetLine;
-using Fincore.Application.Mapping;
-using Fincore.Application.Interfaces.Dashboard;
-using Fincore.Infrastructure.Services.Dashboard;
+using Fincore.Application.AutoMapper.MasterTable;
+
 using Fincore.Application.AutoMapper.Payment;
-using Fincore.Application.Mapper;
+using Fincore.Application.Interfaces;
+using Fincore.Application.Interfaces.Budget;
+using Fincore.Application.Interfaces.BudgetCategory;
+using Fincore.Application.Interfaces.BudgetLine;
+using Fincore.Application.Interfaces.Dashboard;
+using Fincore.Application.Interfaces.ExpenseClaim;
+using Fincore.Application.Interfaces.ICapex;
+using Fincore.Application.Interfaces.IMasterTable;
+using Fincore.Application.Interfaces.IPayment;
+using Fincore.Application.Interfaces.Logs;
+using Fincore.Application.Interfaces.Opex;
 using Fincore.Application.Interfaces.Payment;
+using Fincore.Application.Interfaces.WorkOrder;
+using Fincore.Application.Mapper;
+using Fincore.Application.Mapping;
+using Fincore.Domain.Models;
+using Fincore.Infrastructure;
+using Fincore.Infrastructure.Data;
+using Fincore.Infrastructure.Seed;
+using Fincore.Infrastructure.Services;
+using Fincore.Infrastructure.Services.Budget;
+using Fincore.Infrastructure.Services.BudgetCategory;
+using Fincore.Infrastructure.Services.BudgetLine;
+using Fincore.Infrastructure.Services.Capex;
+using Fincore.Infrastructure.Services.Dashboard;
+using Fincore.Infrastructure.Services.ExpenseClaim;
+using Fincore.Infrastructure.Services.Logs;
+using Fincore.Infrastructure.Services.MasterTable;
+using Fincore.Infrastructure.Services.Opex;
 using Fincore.Infrastructure.Services.Payment;
+using Fincore.Infrastructure.Services.PaymentModule;
+using Fincore.Infrastructure.Services.WorkOrder;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using QuestPDF.Infrastructure;
 
 
 
@@ -113,7 +103,6 @@ builder.Services.AddScoped<IUserActivityLogService, UserActivityLogService>();
 builder.Services.AddScoped<INotificationLogService, NotificationLogService>();
 builder.Services.AddScoped<IApprovalLogService, ApprovalLogService>();
 builder.Services.AddAutoMapper(typeof(LogsMappingProfile));
-
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(
         builder.Configuration.GetConnectionString("dbconn"),
@@ -173,7 +162,7 @@ builder.Services.AddScoped<IProcurementService, ProcurementService>();
 builder.Services.AddScoped<IMasterType, MasterTypeService>();
 builder.Services.AddAutoMapper(typeof(DocumentMappingProfile));
 
-builder.Services.AddMemoryCache();
+
 
 // ---------------------- Rate Limiting ----------------------
 builder.Services.AddRateLimiter(options =>
@@ -203,10 +192,18 @@ builder.Services.AddScoped<IAssetService, AssetService>();
 builder.Services.AddScoped<IGRNService, GRNService>();
 
 builder.Services.AddControllers()
-    .AddJsonOptions(options =>
-    {
-        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
-    });
+.ConfigureApiBehaviorOptions(options =>
+{
+    options.SuppressModelStateInvalidFilter = true;
+})
+.AddJsonOptions(options =>
+{
+    options.JsonSerializerOptions.ReferenceHandler =
+        ReferenceHandler.IgnoreCycles;
+
+    options.JsonSerializerOptions.Converters
+        .Add(new JsonStringEnumConverter());
+});
 
 builder.Services.AddScoped<ICapexReq, CapexReq>();
 builder.Services.AddScoped<IPRService, PRService>();

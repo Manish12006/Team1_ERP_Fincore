@@ -1,13 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using AutoMapper;
-using Fincore.Application.DTO;
-using Fincore.Application.DTOs;
+﻿using AutoMapper;
+using Fincore.Application.DTO.Logs;
 using Fincore.Domain.Models;
-
 
 namespace Fincore.Application.Mapping
 {
@@ -15,46 +8,40 @@ namespace Fincore.Application.Mapping
     {
         public LogsMappingProfile()
         {
-            // Country
+            CreateMap<AuditLogDto, AuditLog>();
 
-            CreateMap<CountryRequestDto, Country>();
-            CreateMap<Country, CountryResponseDto>();
+            CreateMap<AuditLog, AuditLogResponseDto>()
+                .ForMember(
+                    dest => dest.AuditByName,
+                    opt => opt.MapFrom(
+                        src => src.AuditByUser.FullName));
 
-            // State
 
-            CreateMap<StateRequestDto, State>();
-            CreateMap<State, StateResponseDto>();
+            CreateMap<UserActivityLogDto, UserActivityLog>();
 
-            // City
+            CreateMap<UserActivityLog, UserActivityLogResponseDto>()
+                .ForMember(
+                    dest => dest.UserName,
+                    opt => opt.MapFrom(
+                        src => src.User.FullName));
 
-            CreateMap<CityRequestDto, City>();
-            CreateMap<City, CityResponseDto>();
 
-            // Currency Mapping
+            CreateMap<NotificationLogDto, NotificationLog>();
 
-            CreateMap<CurrencyRequestDto, Currency>();
-            CreateMap<Currency, CurrencyResponseDto>();
+            CreateMap<NotificationLog, NotificationLogResponseDto>()
+                .ForMember(
+                    dest => dest.UserName,
+                    opt => opt.MapFrom(
+                        src => src.User.FullName));
 
-            // AuditLog Mapping
 
-            CreateMap<AuditLogRequestDto, AuditLog>();
-            CreateMap<AuditLog, AuditLogResponseDto>();
+            CreateMap<ApprovalLogDto, ApprovalLog>();
 
-            // User Activity Logs
-
-            CreateMap<UserActivityLogRequestDto, UserActivityLog>();
-            CreateMap<UserActivityLog, UserActivityLogResponseDto>();
-
-            // Notification Log
-
-            CreateMap<NotificationLogRequestDto, NotificationLog>();
-            CreateMap<NotificationLog, NotificationLogResponseDto>();
-
-            // Approval Log
-
-            CreateMap<ApprovalLogRequestDto, ApprovalLog>();
-            CreateMap<ApprovalLog, ApprovalLogResponseDto>();
-
+            CreateMap<ApprovalLog, ApprovalLogResponseDto>()
+                .ForMember(
+                    dest => dest.ApproverName,
+                    opt => opt.MapFrom(
+                        src => src.ApproverUser.FullName));
         }
     }
 }

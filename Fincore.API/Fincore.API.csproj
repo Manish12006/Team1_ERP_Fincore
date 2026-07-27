@@ -19,15 +19,13 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Controllers\MasterTable\" />
-    <Folder Include="Controllers\Logs\" />
+    <Folder Include="CommonHelper\" />
     <Folder Include="Controllers\Opex\" />
   </ItemGroup>
 
   <ItemGroup>
     <Folder Include="Controllers\Capex\" />
     <Folder Include="Controllers\Budget\" />
-    <Folder Include="Controllers\Logs\" />
     <Folder Include="Controllers\Opex\" />
   </ItemGroup>
 
