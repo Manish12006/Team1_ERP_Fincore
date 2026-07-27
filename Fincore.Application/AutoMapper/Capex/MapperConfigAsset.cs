@@ -10,7 +10,10 @@ namespace Fincore.Application.AutoMapper.Capex
         {
             CreateMap<Asset, AssetDTO>()
                 .ReverseMap()
-                .ForMember(x => x.AssetId, y => y.Ignore());
+                .ForMember(
+                    x => x.AssetId,
+                    y => y.Ignore()
+                );
         }
     }
 }
