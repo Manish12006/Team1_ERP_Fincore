@@ -25,7 +25,7 @@ namespace Fincore.Application.Interfaces.ICapex
 
         Task<ApiResponse<List<GRNDTO>>> GetGRNByPurchaseOrder(int poId);
 
-
+        Task<ApiResponse<object>> GetGRNDropdown();
 
         // Actions
 

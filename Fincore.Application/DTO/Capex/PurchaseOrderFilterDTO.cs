@@ -1,18 +1,28 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using Fincore.Domain.Enums;
 
 namespace Fincore.Application.DTO.Capex
 {
     public class PurchaseOrderFilterDTO
     {
 
-        //public int? VendorId { get; set; }
+        public string? POCode { get; set; }
 
 
-        public string? Status { get; set; }
+        public ApprovalStatus? Status { get; set; }
+
+
+
+        public int? PurchaseRequisitionId { get; set; }
+
+
+        public int? QuotationId { get; set; }
+
+
+        public int? VendorId { get; set; }
+
+
+        public int? RequestedBy { get; set; }
+
 
 
         public DateTime? FromDate { get; set; }
@@ -21,13 +31,12 @@ namespace Fincore.Application.DTO.Capex
         public DateTime? ToDate { get; set; }
 
 
+
         public decimal? MinAmount { get; set; }
 
 
         public decimal? MaxAmount { get; set; }
 
-
-        public int? DepartmentId { get; set; }
 
 
         public int? CreatedBy { get; set; }
@@ -36,9 +45,13 @@ namespace Fincore.Application.DTO.Capex
         public int? ApprovedBy { get; set; }
 
 
-        public string? POCode { get; set; }
+
+        // Pagination
+
         public int Page { get; set; } = 1;
 
+
         public int PageSize { get; set; } = 10;
+
     }
 }

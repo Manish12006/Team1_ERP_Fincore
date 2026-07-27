@@ -19,23 +19,22 @@ namespace Fincore.API.Controllers.Capex
         }
 
         [HttpPost]
-        public async Task<IActionResult> CreateGRN(
-                [FromBody] GRNDTO dto)
+        public async Task<IActionResult> CreateGRN([FromBody] GRNDTO dto)
         {
-            var result = await service.CreateGRN(dto);
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
 
-            return Ok(result);
+            return Ok(await service.CreateGRN(dto));
         }
 
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateGRN(
-                    int id,
-                    [FromBody] GRNDTO dto)
+        public async Task<IActionResult> UpdateGRN(int id,[FromBody] GRNDTO dto)
         {
-            return Ok(
-                await service.UpdateGRN(dto, id)
-            );
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            return Ok(await service.UpdateGRN(dto, id));
         }
 
         [HttpGet("{id}")]
@@ -124,6 +123,14 @@ namespace Fincore.API.Controllers.Capex
         {
             return Ok(
                 await service.GetGRNHistory(id)
+            );
+        }
+
+        [HttpGet("dropdown")]
+        public async Task<IActionResult> Dropdown()
+        {
+            return Ok(
+            await service.GetGRNDropdown()
             );
         }
     }
