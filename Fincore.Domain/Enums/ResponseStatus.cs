@@ -12,3 +12,4 @@ namespace Fincore.Domain.Enums
         Responded
     }
 }
+

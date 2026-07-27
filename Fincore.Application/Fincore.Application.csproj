@@ -10,15 +10,12 @@
     <Folder Include="AutoMapper\Budget\" />
     <Folder Include="AutoMapper\Logs\" />
     <Folder Include="DTO\Budget\" />
-    <Folder Include="DTO\Logs\" />
     <Folder Include="Interfaces\ICapex\" />
-    <Folder Include="Interfaces\IMasterTable\" />
     <Folder Include="DTO\Opex\" />
     <Folder Include="DTO\Payment\RevenueEntry\Responses\" />
     <Folder Include="Interfaces\ICapex\" />
     <Folder Include="Interfaces\IBudget\" />
     <Folder Include="Interfaces\IOpex\" />
-    <Folder Include="Interfaces\ILogs\" />
     <PackageReference Include="AutoMapper.Extensions.Microsoft.DependencyInjection" Version="12.0.1" />
     <PackageReference Include="AutoMapper.Extensions.Microsoft.DependencyInjection" Version="12.0.1" />
     <PackageReference Include="Google.Apis.Gmail.v1" Version="1.74.0.4162" />

@@ -13,7 +13,6 @@
   <ItemGroup>
     <Folder Include="Services\Capex\" />
     <Folder Include="Services\Budget\" />
-    <Folder Include="Services\Logs\" />
     <Folder Include="Services\Opex\" />
   </ItemGroup>
 

@@ -211,7 +211,7 @@ builder.Services.AddScoped<IProcurementService, ProcurementService>();
 builder.Services.AddScoped<IMasterType, MasterTypeService>();
 builder.Services.AddAutoMapper(typeof(DocumentMappingProfile));
 
-builder.Services.AddMemoryCache();
+
 
 // ---------------------- Rate Limiting ----------------------
 builder.Services.AddRateLimiter(options =>
@@ -252,10 +252,18 @@ builder.Services.AddScoped<IAssetService, AssetService>();
 builder.Services.AddScoped<IGRNService, GRNService>();
 
 builder.Services.AddControllers()
-    .AddJsonOptions(options =>
-    {
-        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
-    });
+.ConfigureApiBehaviorOptions(options =>
+{
+    options.SuppressModelStateInvalidFilter = true;
+})
+.AddJsonOptions(options =>
+{
+    options.JsonSerializerOptions.ReferenceHandler =
+        ReferenceHandler.IgnoreCycles;
+
+    options.JsonSerializerOptions.Converters
+        .Add(new JsonStringEnumConverter());
+});
 
 builder.Services.AddScoped<ICapexReq, CapexReq>();
 builder.Services.AddScoped<IPRService, PRService>();

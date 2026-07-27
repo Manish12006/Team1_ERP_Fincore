@@ -4,19 +4,19 @@ using Fincore.API.CommonHelper;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 
-namespace Fincore.API.Controllers
-{
-    [ApiController]
-    [Route("api/v1/[action]")]
-    [EnableRateLimiting("FixedPolicy")]
-    public class OpexRequestV1Controller : ControllerBase
-    {
-        private readonly IOpexRequestService _opexService;
+//namespace Fincore.API.Controllers
+//{
+//    [ApiController]
+//    [Route("api/v1/[action]")]
+//    [EnableRateLimiting("FixedPolicy")]
+//    public class OpexRequestV1Controller : ControllerBase
+//    {
+//        private readonly IOpexRequestService _opexService;
 
-        public OpexRequestV1Controller(IOpexRequestService opexService)
-        {
-            _opexService = opexService;
-        }
+//        public OpexRequestV1Controller(IOpexRequestService opexService)
+//        {
+//            _opexService = opexService;
+//        }
 
         // Create
         [HttpPost]
@@ -88,61 +88,61 @@ namespace Fincore.API.Controllers
                 page,
                 pageSize);
 
-            var response = ApiResponseHelper.SuccessRes(
-                data,
-                "Opex Requests Fetched Successfully",
-                data.Count);
+//            var response = ApiResponseHelper.SuccessRes(
+//                data,
+//                "Opex Requests Fetched Successfully",
+//                data.Count);
 
-            return Ok(response);
-        }
+//            return Ok(response);
+//        }
 
-        // Get By Id
-        [HttpGet]
-        public async Task<IActionResult> GetOpexRequestById(int id)
-        {
-            var data = await _opexService.GetOpexRequestById(id);
+//        // Get By Id
+//        [HttpGet]
+//        public async Task<IActionResult> GetOpexRequestById(int id)
+//        {
+//            var data = await _opexService.GetOpexRequestById(id);
 
-            if (data == null)
-            {
-                return NotFound(
-                    ApiResponseHelper.Failure<object>(
-                        "Record Not Found",
-                        "NOT_FOUND",
-                        $"Opex Request not found with id : {id}"
-                    ));
-            }
+//            if (data == null)
+//            {
+//                return NotFound(
+//                    ApiResponseHelper.Failure<object>(
+//                        "Record Not Found",
+//                        "NOT_FOUND",
+//                        $"Opex Request not found with id : {id}"
+//                    ));
+//            }
 
-            var response = ApiResponseHelper.SuccessRes(
-                data,
-                "Opex Request Found Successfully",
-                1);
+//            var response = ApiResponseHelper.SuccessRes(
+//                data,
+//                "Opex Request Found Successfully",
+//                1);
 
-            return Ok(response);
-        }
+//            return Ok(response);
+//        }
 
-        // Update
-        [HttpPut]
-        public async Task<IActionResult> UpdateOpexRequest(int id, UpdateOpexRequestDTO dto)
-        {
-            var data = await _opexService.GetOpexRequestById(id);
+//        // Update
+//        [HttpPut]
+//        public async Task<IActionResult> UpdateOpexRequest(int id, UpdateOpexRequestDTO dto)
+//        {
+//            var data = await _opexService.GetOpexRequestById(id);
 
-            if (data == null)
-            {
-                return NotFound(
-                    ApiResponseHelper.Failure<object>(
-                        "Record Not Found",
-                        "NOT_FOUND",
-                        $"Opex Request not found with id : {id}"
-                    ));
-            }
+//            if (data == null)
+//            {
+//                return NotFound(
+//                    ApiResponseHelper.Failure<object>(
+//                        "Record Not Found",
+//                        "NOT_FOUND",
+//                        $"Opex Request not found with id : {id}"
+//                    ));
+//            }
 
-            await _opexService.UpdateOpexRequest(id, dto);
+//            await _opexService.UpdateOpexRequest(id, dto);
 
-            return Ok(new
-            {
-                message = "Opex Request Updated Successfully"
-            });
-        }
+//            return Ok(new
+//            {
+//                message = "Opex Request Updated Successfully"
+//            });
+//        }
 
         // Soft Delete
         [HttpDelete]
@@ -150,23 +150,23 @@ namespace Fincore.API.Controllers
         {
             var data = await _opexService.GetOpexRequestById(id);
 
-            if (data == null)
-            {
-                return NotFound(
-                    ApiResponseHelper.Failure<object>(
-                        "Record Not Found",
-                        "NOT_FOUND",
-                        $"Opex Request not found with id : {id}"
-                    ));
-            }
+//            if (data == null)
+//            {
+//                return NotFound(
+//                    ApiResponseHelper.Failure<object>(
+//                        "Record Not Found",
+//                        "NOT_FOUND",
+//                        $"Opex Request not found with id : {id}"
+//                    ));
+//            }
 
-            await _opexService.DeleteOpexRequest(id);
+//            await _opexService.DeleteOpexRequest(id);
 
-            return Ok(new
-            {
-                message = "Opex Request Deleted Successfully"
-            });
-        }
+//            return Ok(new
+//            {
+//                message = "Opex Request Deleted Successfully"
+//            });
+//        }
 
         // Approve
         [HttpPost]
@@ -190,11 +190,11 @@ namespace Fincore.API.Controllers
                     1));
         }
 
-        // Reject
-        [HttpPost]
-        public async Task<IActionResult> RejectOpexRequest(int id, int approvedBy)
-        {
-            var result = await _opexService.RejectOpexRequest(id, approvedBy);
+//        // Reject
+//        [HttpPost]
+//        public async Task<IActionResult> RejectOpexRequest(int id, int approvedBy)
+//        {
+//            var result = await _opexService.RejectOpexRequest(id, approvedBy);
 
             if (result != "Success")
             {
