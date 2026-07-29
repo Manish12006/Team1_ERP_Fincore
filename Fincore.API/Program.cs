@@ -266,6 +266,15 @@ builder.Services.AddControllers()
     options.JsonSerializerOptions.Converters
         .Add(new JsonStringEnumConverter());
 });
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AngularApp", policy =>
+    {
+        policy.WithOrigins("http://localhost:4200")
+        .AllowAnyHeader()
+        .AllowAnyMethod();
+    });
+});
 
 builder.Services.AddScoped<ICapexReq, CapexReq>();
 builder.Services.AddScoped<IPRService, PRService>();
@@ -323,10 +332,10 @@ app.UseHttpsRedirection();
 
 app.UseRateLimiter();
 
+app.UseCors("AngularApp");
+
 app.UseAuthentication();
 app.UseAuthorization();
-
-app.UseRateLimiter();
 
 app.MapControllers()
     .RequireRateLimiting("FixedPolicy");
