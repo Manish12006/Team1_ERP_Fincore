@@ -48,6 +48,10 @@ namespace Fincore.Domain.Models
         public decimal TaxAmount { get; set; }
 
         [Required]
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal LineTotal { get; set; }
+
+        [Required]
         [StringLength(10)]
         public string ItemStatus { get; set; }
 

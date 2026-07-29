@@ -40,9 +40,6 @@ namespace Fincore.Infrastructure.Services.Dashboard
 
                 TotalPurchaseOrderAmount = await db.PurchaseOrders
                 .SumAsync(x => x.Amount),
-
-                TotalPurchaseRequisitionAmount = await db.PurchaseRequisitions
-                .SumAsync(x => x.Amount)
             };
             return ApiResponseHelper.SuccessRes(
             dashboard,

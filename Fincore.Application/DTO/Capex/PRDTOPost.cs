@@ -15,11 +15,8 @@ namespace Fincore.Application.DTO.Capex
         public string PRNumber { get; set; }
         public int? CapexRequestId { get; set; }
         public string PRTitle { get; set; }
-        public int? VendorId { get; set; }
         public int RequestedBy { get; set; }
         public DateTime? RequiredTillDate { get; set; }
-        public DateTime? OrderDate { get; set; }
-        public decimal Amount { get; set; }
         public byte? IsActive { get; set; }
         public int CreatedBy { get; set; }
         public int? ModifiedBy { get; set; }

@@ -32,10 +32,6 @@ namespace Fincore.Domain.Models
         public DateTime? IssueDate { get; set; }
         public DateTime? LastDate { get; set; }
 
-        [ForeignKey("Vendor")]
-        public int? VendorId { get; set; }
-        public Vendor Vendor { get; set; }
-
         public byte? IsActive { get; set; }
 
         [Required]

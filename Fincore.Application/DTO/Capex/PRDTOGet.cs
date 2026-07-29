@@ -12,12 +12,9 @@ namespace Fincore.Application.DTO.Capex
         public string PRNumber { get; set; }
         public int? CapexRequestId { get; set; }
         public string PRTitle { get; set; }
-        public string VendorCode { get; set; }
         public string RequestedByName { get; set; }
         public DateTime? RequiredTillDate { get; set; }
-        public DateTime? OrderDate { get; set; }
         public string ApprovalStatus { get; set; }
-        public decimal Amount { get; set; }
         public string? ApprovedByName { get; set; }
         public byte? IsActive { get; set; }
         public DateTime? ApprovedAt { get; set; }

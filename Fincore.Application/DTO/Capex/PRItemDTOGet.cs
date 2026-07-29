@@ -20,6 +20,7 @@ namespace Fincore.Application.DTO.Capex
         public decimal? EstimatedUnitPrice { get; set; }
         public decimal TaxPercentage { get; set; }
         public decimal TaxAmount { get; set; }
+        public decimal LineTotal { get; set; }
         public string ItemStatus { get; set; }
 
     }

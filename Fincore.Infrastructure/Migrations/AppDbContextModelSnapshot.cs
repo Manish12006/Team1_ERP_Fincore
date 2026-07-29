@@ -1561,9 +1561,6 @@ namespace Fincore.Infrastructure.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("PurchaseRequisitionId"));
 
-                    b.Property<decimal>("Amount")
-                        .HasColumnType("decimal(18,2)");
-
                     b.Property<string>("ApprovalStatus")
                         .IsRequired()
                         .HasMaxLength(30)
@@ -1592,9 +1589,6 @@ namespace Fincore.Infrastructure.Migrations
 
                     b.Property<int>("ModifiedBy")
                         .HasColumnType("int");
-
-                    b.Property<DateTime?>("OrderDate")
-                        .HasColumnType("datetime2");
 
                     b.Property<string>("PRNumber")
                         .IsRequired()
@@ -1663,6 +1657,9 @@ namespace Fincore.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(10)
                         .HasColumnType("nvarchar(10)");
+
+                    b.Property<decimal>("LineTotal")
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<int>("PurchaseRequisitionId")
                         .HasColumnType("int");
@@ -3106,10 +3103,9 @@ namespace Fincore.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("Fincore.Domain.Models.Vendor", "Vendor")
+                    b.HasOne("Fincore.Domain.Models.Vendor", null)
                         .WithMany("PurchaseRequisitions")
-                        .HasForeignKey("VendorId")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .HasForeignKey("VendorId");
 
                     b.Navigation("ApprovedByUser");
 
@@ -3120,8 +3116,6 @@ namespace Fincore.Infrastructure.Migrations
                     b.Navigation("ModifiedByUser");
 
                     b.Navigation("RequestedByUser");
-
-                    b.Navigation("Vendor");
                 });
 
             modelBuilder.Entity("Fincore.Domain.Models.PurchaseRequisitionItem", b =>
@@ -3195,16 +3189,13 @@ namespace Fincore.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("Fincore.Domain.Models.Vendor", "Vendor")
+                    b.HasOne("Fincore.Domain.Models.Vendor", null)
                         .WithMany("RFQs")
-                        .HasForeignKey("VendorId")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .HasForeignKey("VendorId");
 
                     b.Navigation("CreatedByEmployee");
 
                     b.Navigation("PurchaseRequisition");
-
-                    b.Navigation("Vendor");
                 });
 
             modelBuilder.Entity("Fincore.Domain.Models.RFQVendor", b =>

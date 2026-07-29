@@ -518,11 +518,6 @@ namespace Fincore.Infrastructure.Data
                     .HasForeignKey(e => e.CapexRequestId)
                     .OnDelete(DeleteBehavior.Restrict);
 
-                entity.HasOne(e => e.Vendor)
-                    .WithMany(v => v.PurchaseRequisitions)
-                    .HasForeignKey(e => e.VendorId)
-                    .OnDelete(DeleteBehavior.Restrict);
-
                 entity.HasOne(e => e.RequestedByUser)
                     .WithMany(u => u.PurchaseRequisitionsRequested)
                     .HasForeignKey(e => e.RequestedBy)
@@ -570,11 +565,6 @@ namespace Fincore.Infrastructure.Data
                 entity.HasOne(e => e.PurchaseRequisition)
                     .WithMany(pr => pr.RFQs)
                     .HasForeignKey(e => e.PurchaseRequisitionId)
-                    .OnDelete(DeleteBehavior.Restrict);
-
-                entity.HasOne(e => e.Vendor)
-                    .WithMany(v => v.RFQs)
-                    .HasForeignKey(e => e.VendorId)
                     .OnDelete(DeleteBehavior.Restrict);
 
                 entity.HasOne(e => e.CreatedByEmployee)

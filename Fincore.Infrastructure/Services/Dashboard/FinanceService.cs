@@ -68,8 +68,6 @@ namespace Fincore.Infrastructure.Services.Dashboard
                     .Where(x => x.ApprovalStatus == "Pending")
                     .CountAsync(),
 
-                    PurchaseRequisitionAmount = await db.PurchaseRequisitions
-                    .SumAsync(x => (decimal?)x.Amount) ?? 0
                 };
                 cache.Set(cacheKey, dashboard, TimeSpan.FromMinutes(5));
             }

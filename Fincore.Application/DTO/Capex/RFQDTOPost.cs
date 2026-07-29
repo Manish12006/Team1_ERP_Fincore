@@ -18,7 +18,6 @@ namespace Fincore.Application.DTO.Capex
         public string Description { get; set; }
         public DateTime? IssueDate { get; set; }
         public DateTime? LastDate { get; set; }
-        public int? VendorId { get; set; }
         public byte? IsActive { get; set; }
         public int CreatedBy { get; set; }
         public DateTime? CreatedAt { get; set; }

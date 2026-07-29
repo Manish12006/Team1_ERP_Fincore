@@ -105,7 +105,6 @@ namespace Fincore.Infrastructure.Seed.Procurement
         {
             if (await db.PurchaseRequisitions.AnyAsync()) return;
             var capex   = await db.CapexRequests.OrderBy(c => c.CapexRequestId).ToListAsync();
-            var vendors = await db.Vendors.OrderBy(v => v.VendorId).ToListAsync();
             var users   = await db.Users.Where(u => u.UserCategory == "Employee").ToListAsync();
             var admin = RoleSeeder.BootstrapUserId;
             var now = DateTime.UtcNow;
@@ -122,12 +121,9 @@ namespace Fincore.Infrastructure.Seed.Procurement
                     PRNumber          = $"PR-{DateTime.UtcNow.Year}-{i + 1:D4}",
                     CapexRequestId    = c.CapexRequestId,
                     PRTitle           = $"Requisition for {c.Title}",
-                    VendorId          = vendors[i % vendors.Count].VendorId,
                     RequestedBy       = users[i % users.Count].UserId,
                     RequiredTillDate  = now.AddDays(rng.Int(15, 90)),
-                    OrderDate         = now.AddDays(-rng.Int(5, 60)),
                     ApprovalStatus    = s,
-                    Amount            = System.Math.Round((decimal)rng.Double(25000, 800000), 2),
                     ApprovedBy        = s == "Approved" ? admin : (int?)null,
                     IsActive          = 1,
                     ApprovedAt        = s == "Approved" ? now.AddDays(-rng.Int(1, 30)) : (DateTime?)null,
@@ -160,6 +156,7 @@ namespace Fincore.Infrastructure.Seed.Procurement
                     var unit = System.Math.Round((decimal)rng.Double(100, 15000), 2);
                     var tax  = 18m;
                     var taxAmt = System.Math.Round(qty * unit * tax / 100, 2);
+                    var line = System.Math.Round((unit * qty) + taxAmt, 2);
                     list.Add(new PurchaseRequisitionItem
                     {
                         PurchaseRequisitionId = pr.PurchaseRequisitionId,
@@ -171,6 +168,7 @@ namespace Fincore.Infrastructure.Seed.Procurement
                         EstimatedUnitPrice    = unit,
                         TaxPercentage         = tax,
                         TaxAmount             = taxAmt,
+                        LineTotal             = line,
                         ItemStatus            = statuses[rng.Int(0, statuses.Length - 1)]
                     });
                 }
@@ -183,7 +181,6 @@ namespace Fincore.Infrastructure.Seed.Procurement
         {
             if (await db.RFQs.AnyAsync()) return;
             var prs = await db.PurchaseRequisitions.OrderBy(p => p.PurchaseRequisitionId).ToListAsync();
-            var vendors = await db.Vendors.OrderBy(v => v.VendorId).ToListAsync();
             var employees = await db.Employees.OrderBy(e => e.EmployeeId).ToListAsync();
             var now = DateTime.UtcNow;
             var rng = new Randomizer(FakerHelper.GlobalSeed + 11);
@@ -201,7 +198,6 @@ namespace Fincore.Infrastructure.Seed.Procurement
                     Description            = "Request for quotation issued to shortlisted vendors.",
                     IssueDate              = issue,
                     LastDate               = issue.AddDays(15),
-                    VendorId               = vendors[i % vendors.Count].VendorId,
                     IsActive               = 1,
                     CreatedBy              = employees[i % employees.Count].EmployeeId,
                     CreatedAt              = issue,

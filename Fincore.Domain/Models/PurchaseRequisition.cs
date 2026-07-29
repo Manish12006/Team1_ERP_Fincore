@@ -25,24 +25,16 @@ namespace Fincore.Domain.Models
         [StringLength(255)]
         public string PRTitle { get; set; }
 
-        [ForeignKey("Vendor")]
-        public int? VendorId { get; set; }
-        public Vendor Vendor { get; set; }
-
         [Required]
         [ForeignKey("RequestedByUser")]
         public int RequestedBy { get; set; }
         public User RequestedByUser { get; set; }
 
         public DateTime? RequiredTillDate { get; set; }
-        public DateTime? OrderDate { get; set; }
 
         [Required]
         [StringLength(30)]
         public string ApprovalStatus { get; set; }
-
-        [Column(TypeName = "decimal(18,2)")]
-        public decimal Amount { get; set; }
 
         [ForeignKey("ApprovedByUser")]
         public int? ApprovedBy { get; set; }

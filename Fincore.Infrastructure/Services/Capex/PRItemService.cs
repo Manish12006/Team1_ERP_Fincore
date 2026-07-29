@@ -33,7 +33,7 @@ namespace Fincore.Infrastructure.Services.Capex
 
             var add = map.Map<PurchaseRequisitionItem>(pr);
             add.TaxAmount = CalculateTaxAmount(add.Quantity, add.EstimatedUnitPrice.Value, add.TaxPercentage);
-            //add.LineTotal = CalculateLineTotal(add.Quantity, add.EstimatedUnitPrice, add.TaxAmount);
+            add.LineTotal = CalculateLineTotal(add.Quantity, add.EstimatedUnitPrice.Value, add.TaxAmount);
 
             await db.PurchaseRequisitionItems.AddAsync(add);
             var result = await db.SaveChangesAsync();
@@ -168,7 +168,7 @@ namespace Fincore.Infrastructure.Services.Capex
             }
 
             update.TaxAmount = CalculateTaxAmount(update.Quantity, update.EstimatedUnitPrice.Value, update.TaxPercentage);
-            //update.LineTotal = CalculateLineTotal(update.Quantity, update.EstimatedUnitPrice, update.TaxAmount);
+            update.LineTotal = CalculateLineTotal(update.Quantity, update.EstimatedUnitPrice.Value, update.TaxAmount);
 
             map.Map(pr, update);
             await db.SaveChangesAsync();
