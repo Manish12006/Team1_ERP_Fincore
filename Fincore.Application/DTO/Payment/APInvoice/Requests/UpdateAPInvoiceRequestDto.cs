@@ -10,10 +10,14 @@ namespace Fincore.Application.DTO.Payment.APInvoice.Requests
 
         public int GRNId { get; set; }
 
-        public decimal InvoiceAmount { get; set; }
+        public int? WorkOrderId { get; set; }
+
+        public decimal Amount { get; set; }
 
         public DateTime InvoiceDate { get; set; }
 
         public DateTime DueDate { get; set; }
+
+        public string? InvoiceFile { get; set; }
     }
 }

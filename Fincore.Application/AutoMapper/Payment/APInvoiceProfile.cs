@@ -11,6 +11,8 @@ namespace Fincore.Application.Mapper
         {
             CreateMap<CreateAPInvoiceRequestDto, APInvoice>();
 
+            CreateMap<UpdateAPInvoiceRequestDto, APInvoice>();
+
             CreateMap<APInvoice, APInvoiceResponseDto>()
                 .ForMember(dest => dest.VendorName,
                     opt => opt.MapFrom(src => src.Vendor.Company.CompanyName))

@@ -124,6 +124,7 @@ namespace Fincore.Infrastructure.Services.Payment
         }
         #endregion
 
+
         #region Get All Invoices
 
         public async Task<ApiResponse<List<APInvoiceResponseDto>>> GetAllAsync(APInvoiceFilterDto filter)
@@ -139,15 +140,25 @@ namespace Fincore.Infrastructure.Services.Payment
                 if (filter.PageSize > 100)
                     filter.PageSize = 100;
 
-                string cacheKey = $"APInvoice_Page_{filter.Page}_Size_{filter.PageSize}";
+                // Cache Key (Includes Filters + Sorting + Search + Pagination)
+                string cacheKey =
+                    $"APInvoice_" +
+                    $"P{filter.Page}_" +
+                    $"PS{filter.PageSize}_" +
+                    $"V{filter.VendorId}_" +
+                    $"A{filter.ApprovalStatus}_" +
+                    $"Pay{filter.PaymentStatus}_" +
+                    $"S{filter.Search}_" +
+                    $"SB{filter.SortBy}_" +
+                    $"SO{filter.SortOrder}";
 
                 // Check Cache
                 if (_cache.TryGetValue(cacheKey, out List<APInvoiceResponseDto>? cachedData))
                 {
-                    int cachedTotalRecords = await _context.APInvoices.CountAsync();
+                    int cachedTotalRecords = cachedData!.Count;
 
                     return ApiResponseHelper.SuccessRes(
-                        cachedData!,
+                        cachedData,
                         "AP Invoice List fetched successfully.",
                         cachedTotalRecords);
                 }
@@ -155,6 +166,7 @@ namespace Fincore.Infrastructure.Services.Payment
                 var query = _context.APInvoices
                     .AsNoTracking()
                     .Include(x => x.Vendor)
+                        .ThenInclude(v => v.Company)
                     .Include(x => x.PurchaseOrder)
                     .Include(x => x.GRN)
                     .Include(x => x.WorkOrder)
@@ -166,13 +178,13 @@ namespace Fincore.Infrastructure.Services.Payment
                     query = query.Where(x => x.VendorId == filter.VendorId.Value);
                 }
 
-                // Approval Status Filter
+                // Approval Status
                 if (!string.IsNullOrWhiteSpace(filter.ApprovalStatus))
                 {
                     query = query.Where(x => x.ApprovalStatus == filter.ApprovalStatus);
                 }
 
-                // Payment Status Filter
+                // Payment Status
                 if (!string.IsNullOrWhiteSpace(filter.PaymentStatus))
                 {
                     query = query.Where(x => x.PaymentStatus == filter.PaymentStatus);
@@ -210,7 +222,9 @@ namespace Fincore.Infrastructure.Services.Payment
                         break;
 
                     default:
-                        query = query.OrderByDescending(x => x.CreatedAt);
+                        query = filter.SortOrder?.ToLower() == "asc"
+                            ? query.OrderBy(x => x.CreatedAt)
+                            : query.OrderByDescending(x => x.CreatedAt);
                         break;
                 }
 
@@ -223,6 +237,7 @@ namespace Fincore.Infrastructure.Services.Payment
 
                 var result = _mapper.Map<List<APInvoiceResponseDto>>(invoices);
 
+                // Save Cache
                 _cache.Set(
                     cacheKey,
                     result,
@@ -244,7 +259,10 @@ namespace Fincore.Infrastructure.Services.Payment
                     ex.Message);
             }
         }
+
         #endregion
+
+
         #region Approve Invoice
 
         public async Task<ApiResponse<APInvoiceResponseDto>> ApproveAsync(int id)
@@ -675,19 +693,38 @@ namespace Fincore.Infrastructure.Services.Payment
                         "Invalid GRN");
                 }
 
-                invoice.VendorId = request.VendorId;
-                invoice.PurchaseOrderId = request.PurchaseOrderId;
-                invoice.GRNId = request.GRNId;
-                invoice.InvoiceDate = request.InvoiceDate;
-                invoice.DueDate = request.DueDate;
-                invoice.Amount = request.InvoiceAmount;
+                if (request.WorkOrderId.HasValue)
+                {
+                    var workOrder = await _context.WorkOrders
+                        .FirstOrDefaultAsync(x => x.WorkOrderId == request.WorkOrderId);
+
+                    if (workOrder == null)
+                    {
+                        return ApiResponseHelper.Failure<APInvoiceResponseDto>(
+                            "Work Order not found",
+                            "NOT_FOUND",
+                            "Invalid Work Order");
+                    }
+                }
+
+                _mapper.Map(request, invoice);
+
                 invoice.ModifiedAt = DateTime.UtcNow;
 
                 await _context.SaveChangesAsync();
 
+
                 _cache.Remove(CacheKey);
 
-                var response = _mapper.Map<APInvoiceResponseDto>(invoice);
+                var response = await _context.APInvoices
+    .Include(x => x.Vendor)
+        .ThenInclude(v => v.Company)
+    .Include(x => x.PurchaseOrder)
+    .Include(x => x.GRN)
+    .Include(x => x.WorkOrder)
+    .Where(x => x.APInvoiceId == invoice.APInvoiceId)
+    .ProjectTo<APInvoiceResponseDto>(_mapper.ConfigurationProvider)
+    .FirstAsync();
 
                 return ApiResponseHelper.SuccessRes(
                     response,

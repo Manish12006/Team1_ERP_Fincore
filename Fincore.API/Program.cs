@@ -58,6 +58,29 @@ using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 QuestPDF.Settings.License = LicenseType.Community;
+
+//angular
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AngularApp", policy =>
+    {
+        policy.WithOrigins("http://localhost:4200")
+        .AllowAnyHeader()
+        .AllowAnyMethod();
+    });
+});
+
+
+
+
+
+
+
+
+
+
+
+
 // Add services to the container.
 builder.Services.AddControllers();
 
@@ -110,7 +133,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 
 
-//builder.Services.AddScoped<IARInvoiceService, ARInvoiceService>();
+
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
 var jwtSettings = builder.Configuration.GetSection("Jwt").Get<JwtSettings>();
 
@@ -123,6 +146,9 @@ builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 builder.Services.AddAutoMapper(typeof(MapperConfigPayment));
 builder.Services.AddAutoMapper(typeof(APInvoiceProfile));
 builder.Services.AddAutoMapper(typeof(ARInvoiceProfile));
+builder.Services.AddAutoMapper(typeof(DocumentMappingProfile));
+builder.Services.AddAutoMapper(typeof(LogsMappingProfile));
+
 // ---------------------- Services ----------------------
 builder.Services.AddScoped<IAccountMasterService, AccountMasterService>();
 
@@ -147,7 +173,7 @@ builder.Services.AddScoped<IAuditLogService, AuditLogService>();
 builder.Services.AddScoped<IUserActivityLogService, UserActivityLogService>();
 builder.Services.AddScoped<INotificationLogService, NotificationLogService>();
 builder.Services.AddScoped<IApprovalLogService, ApprovalLogService>();
-builder.Services.AddAutoMapper(typeof(LogsMappingProfile));
+
 
 
 
@@ -160,6 +186,9 @@ builder.Services.AddAuthentication(options =>
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
     options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
 })
+
+
+
 .AddJwtBearer(options =>
 {
     options.TokenValidationParameters = new TokenValidationParameters
@@ -183,7 +212,7 @@ builder.Services.AddScoped<IFinanceService, FinanceService>();
 builder.Services.AddScoped<IProcurementService, ProcurementService>();
 
 builder.Services.AddScoped<IMasterType, MasterTypeService>();
-builder.Services.AddAutoMapper(typeof(DocumentMappingProfile));
+
 
 builder.Services.AddMemoryCache();
 
@@ -192,7 +221,7 @@ builder.Services.AddRateLimiter(options =>
 {
     options.AddFixedWindowLimiter("FixedPolicy", policy =>
     {
-        policy.PermitLimit = 10;
+        policy.PermitLimit = 50;
         policy.Window = TimeSpan.FromMinutes(1);
         policy.QueueLimit = 0;
         policy.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
@@ -272,6 +301,10 @@ if (app.Environment.IsDevelopment())
 }
 
 await DatabaseSeeder.SeedAsync(app.Services);
+
+app.UseCors("AngularApp");
+
+
 app.UseHttpsRedirection();
 
 app.UseRateLimiter();
