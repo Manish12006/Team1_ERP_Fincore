@@ -57,10 +57,7 @@ namespace Fincore.Infrastructure.Mapper
                 )
 
 
-                .ForMember(
-                    dest => dest.RequestedByUser,
-                    opt => opt.Ignore()
-                )
+
 
 
                 .ForMember(
@@ -72,13 +69,10 @@ namespace Fincore.Infrastructure.Mapper
                 .ForMember(
                     dest => dest.ModifiedByUser,
                     opt => opt.Ignore()
-                )
-
-
-                .ForMember(
-                    dest => dest.ApprovedByUser,
-                    opt => opt.Ignore()
                 );
+
+
+                
 
         }
     }

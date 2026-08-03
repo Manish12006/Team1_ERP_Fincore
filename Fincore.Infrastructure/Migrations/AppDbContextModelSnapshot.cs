@@ -317,6 +317,9 @@ namespace Fincore.Infrastructure.Migrations
                     b.Property<int?>("GRNId")
                         .HasColumnType("int");
 
+                    b.Property<int?>("GRNItemId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("ModifiedAt")
                         .HasColumnType("datetime2");
 
@@ -347,6 +350,8 @@ namespace Fincore.Infrastructure.Migrations
                     b.HasIndex("DepartmentId");
 
                     b.HasIndex("GRNId");
+
+                    b.HasIndex("GRNItemId");
 
                     b.HasIndex("PurchaseOrderId");
 
@@ -1142,6 +1147,36 @@ namespace Fincore.Infrastructure.Migrations
                     b.ToTable("GRNs");
                 });
 
+            modelBuilder.Entity("Fincore.Domain.Models.GRNItem", b =>
+                {
+                    b.Property<int>("GRNItemId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("GRNItemId"));
+
+                    b.Property<int>("GRNId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("POItemId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Qty")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Remarks")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("GRNItemId");
+
+                    b.HasIndex("GRNId");
+
+                    b.HasIndex("POItemId");
+
+                    b.ToTable("GRNItems");
+                });
+
             modelBuilder.Entity("Fincore.Domain.Models.JournalEntry", b =>
                 {
                     b.Property<int>("JournalEntryId")
@@ -1424,17 +1459,6 @@ namespace Fincore.Infrastructure.Migrations
                     b.Property<decimal>("Amount")
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<string>("ApprovalStatus")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)");
-
-                    b.Property<DateTime?>("ApprovedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int?>("ApprovedBy")
-                        .HasColumnType("int");
-
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -1450,9 +1474,6 @@ namespace Fincore.Infrastructure.Migrations
                     b.Property<int>("ModifiedBy")
                         .HasColumnType("int");
 
-                    b.Property<DateTime?>("OrderDate")
-                        .HasColumnType("datetime2");
-
                     b.Property<string>("POCode")
                         .IsRequired()
                         .HasMaxLength(30)
@@ -1464,18 +1485,20 @@ namespace Fincore.Infrastructure.Migrations
                     b.Property<int>("QuotationId")
                         .HasColumnType("int");
 
-                    b.Property<int?>("RequestedBy")
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("UserId")
                         .HasColumnType("int");
 
-                    b.Property<DateTime?>("RequiredTillDate")
-                        .HasColumnType("datetime2");
+                    b.Property<int?>("UserId1")
+                        .HasColumnType("int");
 
                     b.Property<int>("VendorId")
                         .HasColumnType("int");
 
                     b.HasKey("POId");
-
-                    b.HasIndex("ApprovedBy");
 
                     b.HasIndex("CreatedBy");
 
@@ -1488,7 +1511,9 @@ namespace Fincore.Infrastructure.Migrations
 
                     b.HasIndex("QuotationId");
 
-                    b.HasIndex("RequestedBy");
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("UserId1");
 
                     b.HasIndex("VendorId");
 
@@ -2457,6 +2482,10 @@ namespace Fincore.Infrastructure.Migrations
                         .HasForeignKey("GRNId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("Fincore.Domain.Models.GRNItem", null)
+                        .WithMany("Assets")
+                        .HasForeignKey("GRNItemId");
+
                     b.HasOne("Fincore.Domain.Models.PurchaseOrder", "PurchaseOrder")
                         .WithMany("Assets")
                         .HasForeignKey("PurchaseOrderId")
@@ -2873,6 +2902,25 @@ namespace Fincore.Infrastructure.Migrations
                     b.Navigation("Vendor");
                 });
 
+            modelBuilder.Entity("Fincore.Domain.Models.GRNItem", b =>
+                {
+                    b.HasOne("Fincore.Domain.Models.GRN", "GRN")
+                        .WithMany()
+                        .HasForeignKey("GRNId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Fincore.Domain.Models.PurchaseOrderItem", "PurchaseOrderItem")
+                        .WithMany()
+                        .HasForeignKey("POItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("GRN");
+
+                    b.Navigation("PurchaseOrderItem");
+                });
+
             modelBuilder.Entity("Fincore.Domain.Models.JournalEntry", b =>
                 {
                     b.HasOne("Fincore.Domain.Models.AccountMaster", "AccountMaster")
@@ -3003,11 +3051,6 @@ namespace Fincore.Infrastructure.Migrations
 
             modelBuilder.Entity("Fincore.Domain.Models.PurchaseOrder", b =>
                 {
-                    b.HasOne("Fincore.Domain.Models.User", "ApprovedByUser")
-                        .WithMany("PurchaseOrdersApproved")
-                        .HasForeignKey("ApprovedBy")
-                        .OnDelete(DeleteBehavior.Restrict);
-
                     b.HasOne("Fincore.Domain.Models.User", "CreatedByUser")
                         .WithMany("PurchaseOrdersCreated")
                         .HasForeignKey("CreatedBy")
@@ -3031,18 +3074,19 @@ namespace Fincore.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("Fincore.Domain.Models.User", "RequestedByUser")
+                    b.HasOne("Fincore.Domain.Models.User", null)
+                        .WithMany("PurchaseOrdersApproved")
+                        .HasForeignKey("UserId");
+
+                    b.HasOne("Fincore.Domain.Models.User", null)
                         .WithMany("PurchaseOrdersRequested")
-                        .HasForeignKey("RequestedBy")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .HasForeignKey("UserId1");
 
                     b.HasOne("Fincore.Domain.Models.Vendor", "Vendor")
                         .WithMany("PurchaseOrders")
                         .HasForeignKey("VendorId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
-
-                    b.Navigation("ApprovedByUser");
 
                     b.Navigation("CreatedByUser");
 
@@ -3051,8 +3095,6 @@ namespace Fincore.Infrastructure.Migrations
                     b.Navigation("PurchaseRequisition");
 
                     b.Navigation("Quotation");
-
-                    b.Navigation("RequestedByUser");
 
                     b.Navigation("Vendor");
                 });
@@ -3560,6 +3602,11 @@ namespace Fincore.Infrastructure.Migrations
                 {
                     b.Navigation("APInvoices");
 
+                    b.Navigation("Assets");
+                });
+
+            modelBuilder.Entity("Fincore.Domain.Models.GRNItem", b =>
+                {
                     b.Navigation("Assets");
                 });
 

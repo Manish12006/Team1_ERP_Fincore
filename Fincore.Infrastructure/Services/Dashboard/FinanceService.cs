@@ -45,13 +45,7 @@ namespace Fincore.Infrastructure.Services.Dashboard
                     TotalPurchaseOrders = await db.PurchaseOrders
                     .CountAsync(),
 
-                    ApprovedPurchaseOrders = await db.PurchaseOrders
-                    .Where(x => x.ApprovalStatus == "Approved")
-                    .CountAsync(),
-
-                    PendingPurchaseOrders = await db.PurchaseOrders
-                    .Where(x => x.ApprovalStatus == "Pending")
-                    .CountAsync(),
+                    
 
                     PurchaseOrderAmount = await db.PurchaseOrders
                     .SumAsync(x => (decimal?)x.Amount) ?? 0,

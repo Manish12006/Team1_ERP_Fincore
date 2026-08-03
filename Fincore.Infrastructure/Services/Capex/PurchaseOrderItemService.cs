@@ -397,18 +397,7 @@ namespace Fincore.Infrastructure.Services.Capex
                                         .FirstOrDefaultAsync(x => x.POId == data.POId);
 
 
-            if (purchaseOrder != null)
-            {
-                if (purchaseOrder.ApprovalStatus == ApprovalStatus.Approved ||
-                   purchaseOrder.ApprovalStatus == ApprovalStatus.Closed)
-                {
-                    return ApiResponseHelper.Failure<PurchaseOrderItemDTO>(
-                        "Cannot Delete PO Item",
-                        "400",
-                        "Approved or Closed Purchase Order Item cannot be deleted"
-                    );
-                }
-            }
+           
 
 
 

@@ -350,14 +350,11 @@ namespace Fincore.Infrastructure.Seed.Procurement
                     PurchaseRequisitionId  = sel.RFQ != null ? sel.RFQ.PurchaseRequisitionId : (int?)null,
                     QuotationId            = sel.QuotationId,
                     VendorId = sel.SelectedVendorId,
-                    RequestedBy            = admin,
-                    RequiredTillDate       = now.AddDays(rng.Int(15, 90)),
-                    OrderDate              = now.AddDays(-rng.Int(5, 45)),
-                    ApprovalStatus         = s,
+                  
                     Amount                 = sel.Quotation.QuotedAmount,
-                    ApprovedBy             = s == "Approved" || s == "Delivered" ? admin : (int?)null,
+                   
                     IsActive               = 1,
-                    ApprovedAt             = s == "Approved" || s == "Delivered" ? now.AddDays(-rng.Int(1, 20)) : (DateTime?)null,
+                    
                     CreatedAt              = now.AddDays(-rng.Int(10, 60)),
                     ModifiedAt             = now,
                     CreatedBy              = admin,
