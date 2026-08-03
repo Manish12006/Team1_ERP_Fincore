@@ -22,10 +22,7 @@ namespace Fincore.Application.Interfaces.ICapex
 
         Task<ApiResponse<List<PurchaseOrderItemDTO>>> GetItemsByPOId(int poId);
 
+        
 
-        Task<ApiResponse<PurchaseOrderItemDTO>> UpdateItemStatus(int id,string status);
-
-
-        Task<ApiResponse<POTotalDTO>> GetPOTotal(int poId);
     }
 }

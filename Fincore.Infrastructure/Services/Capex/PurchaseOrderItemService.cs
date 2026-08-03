@@ -98,39 +98,13 @@ namespace Fincore.Infrastructure.Services.Capex
                 );
             }
 
+            dto.TaxAmount =(dto.Quantity * dto.UnitPrice)* dto.TaxPercentage / 100;
 
-
-            // Calculate Tax Amount
-            dto.TaxAmount =
-                (dto.Quantity * dto.UnitPrice)
-                * dto.TaxPercentage / 100;
-
-
-
-            // Calculate Line Total
-
-            dto.LineTotal =
-                (dto.Quantity * dto.UnitPrice)
-                + dto.TaxAmount;
-
-
-
+            dto.LineTotal =(dto.Quantity * dto.UnitPrice)+ dto.TaxAmount;
             var data = mapper.Map<PurchaseOrderItem>(dto);
-
-
-
             data.ItemStatus = "Open";
-
-
-
             await db.PurchaseOrderItems.AddAsync(data);
-
-
-
             var result = await db.SaveChangesAsync();
-
-
-
             if (result > 0)
             {
 
@@ -173,9 +147,7 @@ namespace Fincore.Infrastructure.Services.Capex
             );
         }
 
-        public async Task<ApiResponse<List<PurchaseOrderItemDTO>>> GetAllPurchaseOrderItems(
-            int page,
-            int pageSize)
+        public async Task<ApiResponse<List<PurchaseOrderItemDTO>>> GetAllPurchaseOrderItems(int page,int pageSize)
         {
             string cacheKey = $"{PurchaseOrderItemCacheKey}_{page}_{pageSize}";
 
@@ -230,16 +202,9 @@ namespace Fincore.Infrastructure.Services.Capex
             );
         }
 
-        public async Task<ApiResponse<PurchaseOrderItemDTO>> UpdatePurchaseOrderItem(
-    int id,
-    PurchaseOrderItemDTO dto)
+        public async Task<ApiResponse<PurchaseOrderItemDTO>> UpdatePurchaseOrderItem(int id,PurchaseOrderItemDTO dto)
         {
-
-
-            var data = await db.PurchaseOrderItems
-                .FirstOrDefaultAsync(x => x.POItemId == id);
-
-
+            var data = await db.PurchaseOrderItems.FirstOrDefaultAsync(x => x.POItemId == id);
 
             if (data == null)
             {
@@ -250,10 +215,6 @@ namespace Fincore.Infrastructure.Services.Capex
                 );
             }
 
-
-
-            // Quantity Check
-
             if (dto.Quantity <= 0)
             {
                 return ApiResponseHelper.Failure<PurchaseOrderItemDTO>(
@@ -262,10 +223,6 @@ namespace Fincore.Infrastructure.Services.Capex
                     "Quantity must be greater than zero"
                 );
             }
-
-
-
-            // Price Check
 
             if (dto.UnitPrice <= 0)
             {
@@ -277,9 +234,6 @@ namespace Fincore.Infrastructure.Services.Capex
             }
 
 
-
-            // Tax Check
-
             if (dto.TaxPercentage < 0)
             {
                 return ApiResponseHelper.Failure<PurchaseOrderItemDTO>(
@@ -289,31 +243,14 @@ namespace Fincore.Infrastructure.Services.Capex
                 );
             }
 
-
-
-            dto.TaxAmount =
-                (dto.Quantity * dto.UnitPrice)
-                * dto.TaxPercentage / 100;
-
-
-
-            dto.LineTotal =
-                (dto.Quantity * dto.UnitPrice)
-                + dto.TaxAmount;
+            dto.TaxAmount =(dto.Quantity * dto.UnitPrice)* dto.TaxPercentage / 100;
+            dto.LineTotal = (dto.Quantity * dto.UnitPrice) + dto.TaxAmount;
 
 
 
             mapper.Map(dto, data);
-
-
-
             await db.SaveChangesAsync();
-
-
-
             cache.Remove(PurchaseOrderItemCacheKey);
-
-
 
             return ApiResponseHelper.SuccessRes(
                 mapper.Map<PurchaseOrderItemDTO>(data),
@@ -325,8 +262,7 @@ namespace Fincore.Infrastructure.Services.Capex
         public async Task<ApiResponse<PurchaseOrderItemDTO>> DeletePurchaseOrderItem(int id)
         {
            
-            var data = await db.PurchaseOrderItems
-                               .FirstOrDefaultAsync(x => x.POItemId == id);
+            var data = await db.PurchaseOrderItems.FirstOrDefaultAsync(x => x.POItemId == id);
 
 
             if (data == null)
@@ -341,9 +277,7 @@ namespace Fincore.Infrastructure.Services.Capex
 
 
             
-            var poExists = await db.PurchaseOrders
-                                   .AnyAsync(x => x.POId == data.POId);
-
+            var poExists = await db.PurchaseOrders.AnyAsync(x => x.POId == data.POId);
 
             if (!poExists)
             {
@@ -353,10 +287,6 @@ namespace Fincore.Infrastructure.Services.Capex
                     "Related Purchase Order does not exist"
                 );
             }
-
-
-
-            
             if (data.Quantity <= 0)
             {
                 return ApiResponseHelper.Failure<PurchaseOrderItemDTO>(
@@ -365,10 +295,6 @@ namespace Fincore.Infrastructure.Services.Capex
                     "Quantity must be greater than zero"
                 );
             }
-
-
-
-            
             if (data.UnitPrice <= 0)
             {
                 return ApiResponseHelper.Failure<PurchaseOrderItemDTO>(
@@ -377,9 +303,6 @@ namespace Fincore.Infrastructure.Services.Capex
                     "Unit Price must be greater than zero"
                 );
             }
-
-
-
             
             if (data.TaxPercentage < 0)
             {
@@ -389,36 +312,11 @@ namespace Fincore.Infrastructure.Services.Capex
                     "Tax percentage cannot be negative"
                 );
             }
-
-
-
-            
-            var purchaseOrder = await db.PurchaseOrders
-                                        .FirstOrDefaultAsync(x => x.POId == data.POId);
-
-
-           
-
-
-
-         
+            var purchaseOrder = await db.PurchaseOrders.FirstOrDefaultAsync(x => x.POId == data.POId);         
             var result = mapper.Map<PurchaseOrderItemDTO>(data);
-
-
-
-            
             db.PurchaseOrderItems.Remove(data);
-
-
             await db.SaveChangesAsync();
-
-
-
-            
             cache.Remove(PurchaseOrderItemCacheKey);
-
-
-
             return ApiResponseHelper.SuccessRes(
                 result,
                 "Purchase Order Item Deleted Successfully"
@@ -440,14 +338,7 @@ namespace Fincore.Infrastructure.Services.Capex
                     "Invalid PO Id"
                 );
             }
-
-
-
-            var data = await db.PurchaseOrderItems
-                .Where(x => x.POId == poId)
-                .ToListAsync();
-
-
+            var data = await db.PurchaseOrderItems.Where(x => x.POId == poId).ToListAsync();
 
             if (!data.Any())
             {
@@ -458,8 +349,6 @@ namespace Fincore.Infrastructure.Services.Capex
                 );
             }
 
-
-
             return ApiResponseHelper.SuccessRes(
                 mapper.Map<List<PurchaseOrderItemDTO>>(data),
                 "Purchase Order Items Retrieved Successfully"
@@ -467,82 +356,6 @@ namespace Fincore.Infrastructure.Services.Capex
 
         }
 
-
-        public async Task<ApiResponse<PurchaseOrderItemDTO>> UpdateItemStatus(
-    int id,
-    string status)
-        {
-
-            var data = await db.PurchaseOrderItems
-                .FirstOrDefaultAsync(x => x.POItemId == id);
-
-
-
-            if (data == null)
-            {
-                return ApiResponseHelper.Failure<PurchaseOrderItemDTO>(
-                    "Item Not Found",
-                    "404",
-                    "Purchase Order Item not found"
-                );
-            }
-
-
-
-            data.ItemStatus = status;
-
-
-
-            await db.SaveChangesAsync();
-
-
-
-            cache.Remove(PurchaseOrderItemCacheKey);
-
-
-
-            return ApiResponseHelper.SuccessRes(
-                mapper.Map<PurchaseOrderItemDTO>(data),
-                "Item Status Updated Successfully"
-            );
-
-        }
-
-        public async Task<ApiResponse<POTotalDTO>> GetPOTotal(int poId)
-        {
-
-            var items = await db.PurchaseOrderItems
-                .Where(x => x.POId == poId)
-                .ToListAsync();
-
-
-            if (!items.Any())
-            {
-                return ApiResponseHelper.Failure<POTotalDTO>(
-                    "Items Not Found",
-                    "404",
-                    "No items found for this PO"
-                );
-            }
-
-
-
-            var result = new POTotalDTO
-            {
-                POId = poId,
-
-                TotalQuantity = items.Sum(x => x.Quantity),
-
-                TotalAmount = items.Sum(x => x.LineTotal)
-            };
-
-
-
-            return ApiResponseHelper.SuccessRes(
-                result,
-                "PO Total Calculated Successfully"
-            );
-
-        }
+        
     }
 }

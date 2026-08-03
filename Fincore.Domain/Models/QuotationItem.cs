@@ -40,5 +40,11 @@ namespace Fincore.Domain.Models
         [Required]
         [Column(TypeName = "decimal(18,2)")]
         public decimal LineTotal { get; set; }
+
+
+
+
+        public ICollection<PurchaseOrderItem> PurchaseOrderItems { get; set; } = new List<PurchaseOrderItem>();
     }
+
 }

@@ -69,22 +69,5 @@ namespace Fincore.API.Controllers.Capex
             );
         }
 
-        [HttpPut("{id}/status")]
-        public async Task<IActionResult> UpdateItemStatus(
-                    int id,
-                    string status)
-        {
-            return Ok(
-                await service.UpdateItemStatus(id, status)
-            );
-        }
-
-        [HttpGet("{poId}/total")]
-        public async Task<IActionResult> GetPOTotal(int poId)
-        {
-            return Ok(
-                await service.GetPOTotal(poId)
-            );
-        }
     }
 }

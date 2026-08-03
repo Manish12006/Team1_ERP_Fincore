@@ -1555,8 +1555,8 @@ namespace Fincore.Infrastructure.Migrations
                     b.Property<decimal>("Quantity")
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<decimal>("TaxAmount")
-                        .HasColumnType("decimal(18,2)");
+                    b.Property<int>("QuotationItemId")
+                        .HasColumnType("int");
 
                     b.Property<decimal>("TaxPercentage")
                         .HasColumnType("decimal(5,2)");
@@ -1574,6 +1574,8 @@ namespace Fincore.Infrastructure.Migrations
                     b.HasIndex("POId");
 
                     b.HasIndex("PRItemId");
+
+                    b.HasIndex("QuotationItemId");
 
                     b.ToTable("PurchaseOrderItems");
                 });
@@ -3113,9 +3115,17 @@ namespace Fincore.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("Fincore.Domain.Models.QuotationItem", "QuotationItem")
+                        .WithMany("PurchaseOrderItems")
+                        .HasForeignKey("QuotationItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.Navigation("PurchaseOrder");
 
                     b.Navigation("PurchaseRequisitionItem");
+
+                    b.Navigation("QuotationItem");
                 });
 
             modelBuilder.Entity("Fincore.Domain.Models.PurchaseRequisition", b =>
@@ -3660,6 +3670,11 @@ namespace Fincore.Infrastructure.Migrations
                     b.Navigation("QuotationItems");
 
                     b.Navigation("VendorSelections");
+                });
+
+            modelBuilder.Entity("Fincore.Domain.Models.QuotationItem", b =>
+                {
+                    b.Navigation("PurchaseOrderItems");
                 });
 
             modelBuilder.Entity("Fincore.Domain.Models.RFQ", b =>

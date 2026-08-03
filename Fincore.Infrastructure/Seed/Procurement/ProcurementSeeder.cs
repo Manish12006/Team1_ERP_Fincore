@@ -395,7 +395,6 @@ namespace Fincore.Infrastructure.Seed.Procurement
                         UnitOfMaterial    = pri.UnitOfMaterial,
                         UnitPrice         = unit,
                         TaxPercentage     = taxPct,
-                        TaxAmount         = taxAmt,
                         LineTotal         = System.Math.Round(unit * qty + taxAmt, 2),
                         ItemStatus        = "Ordered"
                     });
