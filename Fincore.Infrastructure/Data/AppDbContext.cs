@@ -47,6 +47,7 @@ namespace Fincore.Infrastructure.Data
         public DbSet<PurchaseOrder> PurchaseOrders { get; set; }
         public DbSet<PurchaseOrderItem> PurchaseOrderItems { get; set; }
         public DbSet<GRN> GRNs { get; set; }
+        public DbSet<GRNItem> GRNItems { get; set; }
         public DbSet<Asset> Assets { get; set; }
         public DbSet<OpexRequest> OpexRequests { get; set; }
         public DbSet<ExpenseClaim> ExpenseClaims { get; set; }

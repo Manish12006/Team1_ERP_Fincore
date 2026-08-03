@@ -53,3 +53,54 @@ namespace Fincore.Domain.Models
         public DateTime? ModifiedAt { get; set; }
     }
 }
+
+
+
+
+
+
+
+
+
+
+//using System.ComponentModel.DataAnnotations;
+//using System.ComponentModel.DataAnnotations.Schema;
+
+//namespace Fincore.Domain.Models
+//{
+//    public class Asset
+//    {
+//        [Key]
+//        public int AssetId { get; set; }
+
+//        [Required]
+//        [ForeignKey("GRNItem")]
+//        public int GRNItemId { get; set; }
+//        public GRNItem GRNItem { get; set; }
+
+//        [Required]
+//        [ForeignKey("PurchaseOrderItem")]
+//        public int POItemId { get; set; }
+//        public PurchaseOrderItem PurchaseOrderItem { get; set; }
+
+//        [Required]
+//        [StringLength(50)]
+//        public string AssetCode { get; set; }
+
+//        [Required]
+//        [StringLength(100)]
+//        public string AssetName { get; set; }
+
+//        [Column(TypeName = "decimal(18,2)")]
+//        public decimal PurchaseCost { get; set; }
+
+//        public DateTime? PurchaseDate { get; set; }
+
+//        [StringLength(20)]
+//        public string Status { get; set; }
+
+//        [ForeignKey("User")]
+//        public int? AssignedTo { get; set; }
+//        public User? User { get; set; }
+//    }
+//}

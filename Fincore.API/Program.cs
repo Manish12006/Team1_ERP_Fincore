@@ -246,6 +246,19 @@ builder.Services.AddScoped<IVendorCategoryService, VendorCategoryService>();
 builder.Services.AddAutoMapper(typeof(AMCapexRequest));
 builder.Services.AddScoped<IReportService, ReportService>();
 builder.Services.AddScoped<IGeneralLedgerService, GeneralLedgerService>();
+
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AppName",
+        policy =>
+        {
+            policy.WithOrigins("http://localhost:4200")
+                  .AllowAnyHeader()
+                  .AllowAnyMethod();
+        });
+});
+
 var app = builder.Build();
 
 
@@ -263,7 +276,7 @@ await DatabaseSeeder.SeedAsync(app.Services);
 app.UseHttpsRedirection();
 
 app.UseRateLimiter();
-
+app.UseCors("AppName");
 app.UseAuthentication();
 app.UseAuthorization();
 

@@ -59,3 +59,44 @@ namespace Fincore.Domain.Models
         public string ItemStatus { get; set; }
     }
 }
+
+
+
+
+
+//using System.ComponentModel.DataAnnotations;
+//using System.ComponentModel.DataAnnotations.Schema;
+
+//namespace Fincore.Domain.Models
+//{
+//    public class PurchaseOrderItem
+//    {
+//        [Key]
+//        public int POItemId { get; set; }
+
+//        [Required]
+//        [ForeignKey("PurchaseOrder")]
+//        public int PurchaseOrderId { get; set; }
+//        public PurchaseOrder PurchaseOrder { get; set; }
+
+//        [Required]
+//        [ForeignKey("QuotationItem")]
+//        public int QuotationItemId { get; set; }
+//        public QuotationItem QuotationItem { get; set; }
+
+//        [Required]
+//        [StringLength(100)]
+//        public string ItemName { get; set; }
+
+//        [Column(TypeName = "decimal(18,2)")]
+//        public decimal UnitPrice { get; set; }
+
+//        [Column(TypeName = "decimal(18,2)")]
+//        public decimal Tax { get; set; }
+
+//        [Column(TypeName = "decimal(18,2)")]
+//        public decimal Discount { get; set; }
+
+//        public List<GRNItem>? GRNItems { get; set; }
+//    }
+//}
