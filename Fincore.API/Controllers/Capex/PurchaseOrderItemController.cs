@@ -1,4 +1,6 @@
-﻿using Fincore.Application.DTO.Capex;
+﻿using Fincore.API.CommonHelper;
+using Fincore.Application.DTO.Capex;
+using Fincore.Application.DTO.Capex.PurchaseOrderItems;
 using Fincore.Application.Interfaces.ICapex;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -18,56 +20,52 @@ namespace Fincore.API.Controllers.Capex
             this.service = service;
         }
 
-
         [HttpPost]
-        public async Task<IActionResult> CreatePurchaseOrderItem(PurchaseOrderItemDTO dto)
+        public async Task<IActionResult> Create(POICreateDTO dto)
         {
-            return Ok(await service.AddPurchaseOrderItem(dto));
+            await service.Create(dto);
+            return Ok(ApiResponseHelper.SuccessRes<string>(null, "Data Created"));
         }
 
+        [HttpPut]
+        public async Task<IActionResult> Update(POIUpdateDTO dto)
+        {
+            await service.Update(dto);
+            return Ok(ApiResponseHelper.SuccessRes<string>(null, "Data Updated"));
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> Delete(int id)
+        {
+            await service.Delete(id);
+            return Ok(ApiResponseHelper.SuccessRes<string>(null, "Data Deleted"));
+        }
+
+        [HttpGet("{id}")]
+        public async Task<IActionResult> ReadById(int id)
+        {
+            await service.ReadById(id);
+            return Ok(ApiResponseHelper.SuccessRes<string>(null, "Data Fetcned"));
+        }
 
 
         [HttpGet]
-        public async Task<IActionResult> GetAllPurchaseOrderItems(
-            int page = 1,
-            int pageSize = 10)
+        public async Task<IActionResult> ReadAll()
         {
-            return Ok(await service.GetAllPurchaseOrderItems(page, pageSize));
+            await service.ReadAll();
+            return Ok(ApiResponseHelper.SuccessRes<string>(null, "Data Fetcned"));
         }
 
 
+        //[HttpPost]
+        //public async Task<IActionResult> Dropdown(POICreateDTO dto)
+        //{
+        //    //await service.Create(dto);
+        //    return Ok(ApiResponseHelper.SuccessRes<string>(null, "Dropdown Fetched"));
 
-        [HttpGet("{id}")]
-        public async Task<IActionResult> GetPurchaseOrderItem(int id)
-        {
-            return Ok(await service.GetPurchaseOrderItem(id));
-        }
-
-
-
-        [HttpPut("{id}")]
-        public async Task<IActionResult> UpdatePurchaseOrderItem(
-            int id,
-            PurchaseOrderItemDTO dto)
-        {
-            return Ok(await service.UpdatePurchaseOrderItem(id, dto));
-        }
+        //}
 
 
-
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeletePurchaseOrderItem(int id)
-        {
-            return Ok(await service.DeletePurchaseOrderItem(id));
-        }
-
-        [HttpGet("{poId}")]
-        public async Task<IActionResult> GetItemsByPOId(int poId)
-        {
-            return Ok(
-                await service.GetItemsByPOId(poId)
-            );
-        }
 
     }
 }

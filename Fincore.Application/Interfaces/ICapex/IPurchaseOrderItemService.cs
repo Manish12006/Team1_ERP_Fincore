@@ -1,5 +1,6 @@
 ﻿using Fincore.Application.DTO;
 using Fincore.Application.DTO.Capex;
+using Fincore.Application.DTO.Capex.PurchaseOrderItems;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -10,20 +11,12 @@ namespace Fincore.Application.Interfaces.ICapex
 {
     public interface IPurchaseOrderItemService
     {
-        Task<ApiResponse<PurchaseOrderItemDTO>> AddPurchaseOrderItem(PurchaseOrderItemDTO dto);
+        Task Create(POICreateDTO dto);
+        Task Update(POIUpdateDTO dto);
+        Task Delete(int id);
+        Task <POIItemDTO> ReadById(int id);
+        Task<List<POIItemDTO>> ReadAll();
 
-        Task<ApiResponse<PurchaseOrderItemDTO>> GetPurchaseOrderItem(int id);
-
-        Task<ApiResponse<List<PurchaseOrderItemDTO>>> GetAllPurchaseOrderItems(int page, int pageSize);
-
-        Task<ApiResponse<PurchaseOrderItemDTO>> UpdatePurchaseOrderItem(int id, PurchaseOrderItemDTO dto);
-
-        Task<ApiResponse<PurchaseOrderItemDTO>> DeletePurchaseOrderItem(int id);
-
-        Task<ApiResponse<List<PurchaseOrderItemDTO>>> GetItemsByPOId(int poId);
-
-        
-        
-
+        Task DropDownQuotationId();
     }
 }
