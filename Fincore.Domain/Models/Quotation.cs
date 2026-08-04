@@ -34,11 +34,19 @@ namespace Fincore.Domain.Models
         [StringLength(500)]
         public string Remarks { get; set; }
 
+        public byte? IsActive { get; set; }
+
         [Required]
         public byte IsSelected { get; set; }
 
         public DateTime? CreatedAt { get; set; }
         public DateTime? ModifiedAt { get; set; }
+
+        [ForeignKey("PurchaseRequisition")]
+        public int? PurchaseRequisitionId { get; set; }
+        public PurchaseRequisition PurchaseRequisition { get; set; }
+
+
 
         // Navigation Properties
         public List<QuotationItem> QuotationItems { get; set; }

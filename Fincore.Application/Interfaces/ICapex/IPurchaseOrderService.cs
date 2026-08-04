@@ -15,8 +15,8 @@ namespace Fincore.Application.Interfaces.ICapex
         Task<ApiResponse<PurchaseOrderDTO>> UpdatePurchaseOrder(int id,PurchaseOrderDTO dto);
 
         Task<ApiResponse<PurchaseOrderDTO>> DeletePurchaseOrder(int id);
-       
-        Task<ApiResponse<List<DropdownDTO>>> GetQuotationDropdown();
+
+        Task<ApiResponse<QuotationDetailsDTO>> ReadQuotationById(int id);
 
     }
 }

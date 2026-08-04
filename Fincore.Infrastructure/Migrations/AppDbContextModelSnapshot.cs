@@ -1728,11 +1728,17 @@ namespace Fincore.Infrastructure.Migrations
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<byte?>("IsActive")
+                        .HasColumnType("tinyint");
+
                     b.Property<byte>("IsSelected")
                         .HasColumnType("tinyint");
 
                     b.Property<DateTime?>("ModifiedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<int?>("PurchaseRequisitionId")
+                        .HasColumnType("int");
 
                     b.Property<string>("QuotationNumber")
                         .IsRequired()
@@ -1754,6 +1760,8 @@ namespace Fincore.Infrastructure.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("QuotationId");
+
+                    b.HasIndex("PurchaseRequisitionId");
 
                     b.HasIndex("RFQId");
 
@@ -3197,6 +3205,10 @@ namespace Fincore.Infrastructure.Migrations
 
             modelBuilder.Entity("Fincore.Domain.Models.Quotation", b =>
                 {
+                    b.HasOne("Fincore.Domain.Models.PurchaseRequisition", "PurchaseRequisition")
+                        .WithMany()
+                        .HasForeignKey("PurchaseRequisitionId");
+
                     b.HasOne("Fincore.Domain.Models.RFQ", "RFQ")
                         .WithMany("Quotations")
                         .HasForeignKey("RFQId")
@@ -3208,6 +3220,8 @@ namespace Fincore.Infrastructure.Migrations
                         .HasForeignKey("VendorId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("PurchaseRequisition");
 
                     b.Navigation("RFQ");
 

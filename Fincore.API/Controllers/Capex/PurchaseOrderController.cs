@@ -20,68 +20,49 @@ namespace Fincore.API.Controllers.Capex
             this.service = service;
         }
 
-
         [HttpPost]
-        public async Task<IActionResult> CreatePurchaseOrder(
-            PurchaseOrderDTO dto)
+        public async Task<IActionResult> CreatePurchaseOrder( PurchaseOrderDTO dto)
         {
-            return Ok(
-                await service.AddPurchaseOrder(dto));
+            return Ok(await service.AddPurchaseOrder(dto));
         }
 
-
         [HttpGet]
-        public async Task<IActionResult> GetAllPurchaseOrder(
-            int page = 1,
-            int pageSize = 10)
+        public async Task<IActionResult> GetAllPurchaseOrder(int page = 1,int pageSize = 10)
         {
-            return Ok(
-                await service.GetAllPurchaseOrder(
-                    page,
-                    pageSize));
+            return Ok( await service.GetAllPurchaseOrder( page, pageSize));
         }
 
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetPurchaseOrder(
-            int id)
+        public async Task<IActionResult> GetPurchaseOrder(int id)
         {
-            return Ok(
-                await service.GetPurchaseOrder(id));
+            return Ok( await service.GetPurchaseOrder(id));
         }
-
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdatePurchaseOrder(
-            int id,
-            PurchaseOrderDTO dto)
+        public async Task<IActionResult> UpdatePurchaseOrder(int id, PurchaseOrderDTO dto)
         {
-            return Ok(
-                await service.UpdatePurchaseOrder(
-                    id,
-                    dto));
+            return Ok( await service.UpdatePurchaseOrder(id,dto));
         }
-
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeletePurchaseOrder(
             int id)
         {
-            return Ok(
-                await service.DeletePurchaseOrder(id));
+            return Ok( await service.DeletePurchaseOrder(id));
         }
 
-        [HttpGet("dropdown/quotations")]
-        public async Task<IActionResult> QuotationDropdown()
+        [HttpGet("quotation/{id}")]
+        public async Task<IActionResult> ReadQuotationById(int id)
         {
-            return Ok(await service.GetQuotationDropdown());
+            return Ok(await service.ReadQuotationById(id));
         }
 
 
 
-       
 
 
 
-       
+
+
     }
 }

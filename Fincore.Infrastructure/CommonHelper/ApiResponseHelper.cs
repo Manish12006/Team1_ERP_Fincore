@@ -36,5 +36,10 @@ namespace Fincore.Infrastructure.CommonHelper
                 }
             };
         }
+
+        internal static ApiResponse<T> Failure<T>(string v)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

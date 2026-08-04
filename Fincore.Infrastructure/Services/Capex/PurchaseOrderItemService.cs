@@ -33,8 +33,7 @@ namespace Fincore.Infrastructure.Services.Capex
         {
 
             // PO Exists Check
-            var poExists = await db.PurchaseOrders
-                .AnyAsync(x => x.POId == dto.POId);
+            var poExists = await db.PurchaseOrders.AnyAsync(x => x.POId == dto.POId);
 
 
             if (!poExists)

@@ -61,7 +61,7 @@ namespace Fincore.API.Controllers.Capex
             return Ok(await service.DeletePurchaseOrderItem(id));
         }
 
-        [HttpGet("by-po/{poId}")]
+        [HttpGet("{poId}")]
         public async Task<IActionResult> GetItemsByPOId(int poId)
         {
             return Ok(

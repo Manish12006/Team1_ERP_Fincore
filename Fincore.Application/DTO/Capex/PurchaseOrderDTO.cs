@@ -10,7 +10,7 @@ namespace Fincore.Application.DTO.Capex
 
 
         [StringLength(30)]
-        public string? POCode { get; set; }
+        public string POCode { get; set; } = "";
 
 
 
