@@ -193,7 +193,7 @@ builder.Services.AddMemoryCache();
 builder.Services.AddAutoMapper(
    
     typeof(MapperConfigAsset),
-    typeof(MapperConfigGRN)
+    typeof(GRN)
 );
 
 builder.Services.AddScoped<IPurchaseOrderService, PurchaseOrderService>();

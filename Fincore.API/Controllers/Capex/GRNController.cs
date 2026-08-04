@@ -1,4 +1,7 @@
-﻿using Fincore.Application.DTO.Capex;
+﻿using Fincore.API.CommonHelper;
+using Fincore.Application.DTO.Capex;
+using Fincore.Application.DTO.Capex.GRN;
+using Fincore.Application.DTO.Capex.PurchaseOrder;
 using Fincore.Application.Interfaces.ICapex;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -19,119 +22,50 @@ namespace Fincore.API.Controllers.Capex
         }
 
         [HttpPost]
-        public async Task<IActionResult> CreateGRN([FromBody] GRNDTO dto)
+        public async Task<IActionResult> Create(GRNCreateDTO dto)
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
+            await service.Create(dto);
+            return Ok(ApiResponseHelper.SuccessRes<string>(null, "Data Created"));
 
-            return Ok(await service.CreateGRN(dto));
         }
 
-
-        [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateGRN(int id,[FromBody] GRNDTO dto)
+        [HttpPut]
+        public async Task<IActionResult> Update(GRNUpdateDTO dto)
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
+            await service.Update(dto);
+            return Ok(ApiResponseHelper.SuccessRes<string>(null, "Data Upadated"));
 
-            return Ok(await service.UpdateGRN(dto, id));
         }
 
-        [HttpGet("{id}")]
-        public async Task<IActionResult> ReadGRNById(int id)
-        {
-            return Ok(await service.GetGRNById(id));
-        }
 
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteGRN(int id)
+        public async Task<IActionResult> Delete(int id)
         {
-            return Ok(await service.DeleteGRN(id));
+            await service.Delete(id);
+            return Ok(ApiResponseHelper.SuccessRes<string>(null, "Data Deleted"));
+
         }
+
+
+
+        [HttpGet("{id}")]
+        public async Task<IActionResult> ReadById(int id)
+        {
+            await service.ReadById(id);
+            return Ok(ApiResponseHelper.SuccessRes<string>(null, "Data Fetched"));
+
+        }
+
 
         [HttpGet]
-        public async Task<IActionResult> GetAllGRN(int page=1,int pagesize = 10)
+        public async Task<IActionResult> ReadAll()
         {
-            return Ok(await service.GetAllGRN(page, pagesize));
-        }
+            await service.ReadAll();
+            return Ok(ApiResponseHelper.SuccessRes<string>(null, "Data Fetched"));
 
-        [HttpPut("approve-quality/{id}")]
-        public async Task<IActionResult> ApproveQuality(int id)
-        {
-            return Ok(
-                await service.ApproveQualityCheck(id)
-            );
         }
 
 
 
-        [HttpPut("reject-quality/{id}")]
-        public async Task<IActionResult> RejectQuality(int id)
-        {
-            return Ok(
-                await service.RejectQualityCheck(id)
-            );
-        }
-
-
-
-        [HttpPut("close/{id}")]
-        public async Task<IActionResult> CloseGRN(int id)
-        {
-            return Ok(
-                await service.CloseGRN(id)
-            );
-        }
-
-        [HttpGet("status/{status}")]
-        public async Task<IActionResult> GetByStatus(string status)
-        {
-            return Ok(
-                await service.GetGRNByStatus(status)
-            );
-        }
-
-        [HttpGet("vendor/{vendorId}")]
-        public async Task<IActionResult> GetByVendor(int vendorId)
-        {
-            return Ok(
-                await service.GetGRNByVendor(vendorId)
-            );
-        }
-
-        [HttpGet("purchase-order/{poId}")]
-        public async Task<IActionResult> GetByPO(int poId)
-        {
-            return Ok(
-                await service.GetGRNByPurchaseOrder(poId)
-            );
-        }
-
-        [HttpPost("receive")]
-        public async Task<IActionResult> ReceiveGoods(
-        [FromBody] GRNDTO dto)
-        {
-            return Ok(
-                await service.ReceiveGoods(dto)
-            );
-        }
-
-
-
-        [HttpGet("{id}/history")]
-        public async Task<IActionResult> GetHistory(int id)
-        {
-            return Ok(
-                await service.GetGRNHistory(id)
-            );
-        }
-
-        [HttpGet("dropdown")]
-        public async Task<IActionResult> Dropdown()
-        {
-            return Ok(
-            await service.GetGRNDropdown()
-            );
-        }
     }
 }
