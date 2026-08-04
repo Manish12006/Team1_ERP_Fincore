@@ -44,16 +44,16 @@ namespace Fincore.API.Controllers.Capex
         [HttpGet("{id}")]
         public async Task<IActionResult> ReadById(int id)
         {
-            await service.ReadById(id);
-            return Ok(ApiResponseHelper.SuccessRes<string>(null, "Data Fetcned"));
+            var data = await service.ReadById(id);
+            return Ok(ApiResponseHelper.SuccessRes<POIItemDTO>(data, "Data Fetcned"));
         }
 
 
         [HttpGet]
         public async Task<IActionResult> ReadAll()
         {
-            await service.ReadAll();
-            return Ok(ApiResponseHelper.SuccessRes<string>(null, "Data Fetcned"));
+            var data=await service.ReadAll();
+            return Ok(ApiResponseHelper.SuccessRes<List<POIItemDTO>>(data, "Data Fetcned"));
         }
 
 
