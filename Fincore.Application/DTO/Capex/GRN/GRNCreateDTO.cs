@@ -16,14 +16,11 @@ namespace Fincore.Application.DTO.Capex.GRN
         public int VendorId { get; set; }
         public DateTime ReceivedDate { get; set; }
         public int ReceivedBy { get; set; }
-        public User ReceivedByUser { get; set; }
         public string QualityCheckStatus { get; set; }
         public int QualityCheckedBy { get; set; }
         public string GRNStatus { get; set; }
         public string Remarks { get; set; }
-        public DateTime CreatedAt { get; set; }
-        public DateTime ModifiedAt { get; set; }
-        public int CreatedBy { get; set; }
+        
 
     }
 }

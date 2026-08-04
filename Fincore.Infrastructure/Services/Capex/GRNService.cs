@@ -16,9 +16,7 @@ namespace Fincore.Infrastructure.Services.Capex
     {
         private readonly AppDbContext db;
         private readonly IMapper mapper;
-        private readonly IMemoryCache cache;
-
-        private const string GRNCacheKey = "GRN";
+        
 
         public GRNService(AppDbContext db,IMapper mapper)
         {
