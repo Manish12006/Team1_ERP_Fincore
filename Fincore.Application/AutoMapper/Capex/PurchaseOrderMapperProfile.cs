@@ -1,5 +1,6 @@
 ﻿using AutoMapper;
 using Fincore.Application.DTO.Capex;
+using Fincore.Application.DTO.Capex.Assets;
 using Fincore.Application.DTO.Capex.GRN;
 using Fincore.Application.DTO.Capex.PurchaseOrder;
 using Fincore.Application.DTO.Capex.PurchaseOrderItems;
@@ -32,6 +33,13 @@ namespace Fincore.Infrastructure.Mapper
             CreateMap<GRN, GRNUpdateDTO>().ReverseMap();
             CreateMap<GRN, GRNItemDTO>().ReverseMap();
 
+
+            //ASSETS
+
+            CreateMap<Asset, AssetsCreateDTO>().ReverseMap();
+            CreateMap<Asset, AssetsUpdateDTO>().ReverseMap();
+            CreateMap<Asset, AssetsItemDTO>().ReverseMap();
+            
         }
     }
 }

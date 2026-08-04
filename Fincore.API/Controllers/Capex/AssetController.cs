@@ -1,4 +1,7 @@
-﻿using Fincore.Application.DTO.Capex;
+﻿using Fincore.API.CommonHelper;
+using Fincore.Application.DTO.Capex;
+using Fincore.Application.DTO.Capex.Assets;
+using Fincore.Application.DTO.Capex.PurchaseOrder;
 using Fincore.Application.Interfaces.ICapex;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -16,129 +19,50 @@ namespace Fincore.API.Controllers.Capex
         {
             this.service = service;
         }
-
         [HttpPost]
-        public async Task<IActionResult> CreateAsset(
-            [FromBody] AssetDTO dto)
+        public async Task<IActionResult> Create(AssetsCreateDTO dto)
         {
-            return Ok(
-                await service.AddAsset(dto)
-            );
+            await service.Create(dto);
+            return Ok(ApiResponseHelper.SuccessRes<string>(null, "Data Created"));
+
         }
 
-        [HttpGet]
-        public async Task<IActionResult> GetAllAssets(
-            int page = 1,
-            int pageSize = 10)
+        [HttpPut]
+        public async Task<IActionResult> Update(AssetsUpdateDTO dto)
         {
-            return Ok(
-                await service.GetAllAssets(page, pageSize)
-            );
+            await service.Update(dto);
+            return Ok(ApiResponseHelper.SuccessRes<string>(null, "Data Upadated"));
+
         }
+
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> Delete(int id)
+        {
+            await service.Delete(id);
+            return Ok(ApiResponseHelper.SuccessRes<string>(null, "Data Deleted"));
+
+        }
+
 
 
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetAsset(int id)
+        public async Task<IActionResult> ReadById(int id)
         {
-            return Ok(
-                await service.GetAsset(id)
-            );
-        }
+            await service.ReadById(id);
+            return Ok(ApiResponseHelper.SuccessRes<string>(null, "Data Fetched"));
 
-        [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateAsset(
-            int id,
-            [FromBody] AssetDTO dto)
-        {
-            return Ok(
-                await service.UpdateAsset(id, dto)
-            );
-        }
-
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteAsset(int id)
-        {
-            return Ok(
-                await service.DeleteAsset(id)
-            );
         }
 
 
-        [HttpPut("{id}/assign")]
-        public async Task<IActionResult> AssignAsset(
-            int id,
-            int userId)
+        [HttpGet]
+        public async Task<IActionResult> ReadAll()
         {
-            return Ok(
-                await service.AssignAsset(id, userId)
-            );
-        }
+            await service.ReadAll();
+            return Ok(ApiResponseHelper.SuccessRes<string>(null, "Data Fetched"));
 
-        [HttpPut("{id}/transfer")]
-        public async Task<IActionResult> TransferAsset(
-            int id,
-            int departmentId)
-        {
-            return Ok(
-                await service.TransferAsset(id, departmentId)
-            );
-        }
-
-        [HttpPut("{id}/dispose")]
-        public async Task<IActionResult> DisposeAsset(int id)
-        {
-            return Ok(
-                await service.DisposeAsset(id)
-            );
-        }
-
-        [HttpPut("{id}/repair")]
-        public async Task<IActionResult> RepairAsset(int id)
-        {
-            return Ok(
-                await service.RepairAsset(id)
-            );
-        }
-        [HttpPut("{id}/return")]
-        public async Task<IActionResult> ReturnAsset(int id)
-        {
-            return Ok(
-                await service.ReturnAsset(id)
-            );
         }
 
 
-        [HttpGet("status/{status}")]
-        public async Task<IActionResult> GetByStatus(
-            string status)
-        {
-            return Ok(
-                await service.GetAssetByStatus(status)
-            );
-        }
-
-        [HttpGet("dropdown/vendors")]
-        public async Task<IActionResult> GetVendorDropdown()
-        {
-            return Ok(await service.GetVendorDropdown());
-        }
-
-        [HttpGet("dropdown/departments")]
-        public async Task<IActionResult> GetDepartmentDropdown()
-        {
-            return Ok(await service.GetDepartmentDropdown());
-        }
-
-        [HttpGet("dropdown/grn")]
-        public async Task<IActionResult> GetGRNDropdown()
-        {
-            return Ok(await service.GetGRNDropdown());
-        }
-
-        [HttpGet("dropdown/purchase-orders")]
-        public async Task<IActionResult> GetPurchaseOrderDropdown()
-        {
-            return Ok(await service.GetPurchaseOrderDropdown());
-        }
     }
 }

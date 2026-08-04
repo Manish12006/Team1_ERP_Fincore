@@ -192,7 +192,6 @@ builder.Services.AddRateLimiter(options =>
 builder.Services.AddMemoryCache();
 builder.Services.AddAutoMapper(
    
-    typeof(MapperConfigAsset),
     typeof(GRN)
 );
 

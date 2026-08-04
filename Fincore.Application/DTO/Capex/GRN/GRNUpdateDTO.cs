@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Fincore.Application.DTO.Capex.GRN
 {
-    public class GRNUpdateDTO
+    public class GRNUpdateDTO : GRNCreateDTO
     {
         public int GRNId { get; set; }
         public byte IsActive { get; set; }
